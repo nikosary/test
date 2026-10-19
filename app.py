@@ -1,60 +1,72 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
-import os
 import sys
+import json
 
-# Импортируем нашу готовую цепочку генерации видео
+# Подключаем наш ИИ-суммаризатор
 try:
-    from video_generator import generate_video
     from summarizer import generate_summary
-    from search import search_internet
 except ImportError:
-    print("[Ошибка] Не найдены файлы search.py, summarizer.py или video_generator.py!")
-    print("Убедитесь, что запускаете app.py прямо из папки test.")
+    print("[Ошибка] Не найден файл summarizer.py!")
     sys.exit(1)
 
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Разбираем адрес запроса
         parsed_url = urllib.parse.urlparse(self.path)
         
-        # Если пользователь отправляет форму со страницы ожидания (process.html)
-        if parsed_url.path == "/process.html" or parsed_url.path == "/answer.html":
+        # Перехватываем переход на страницу результатов
+        if parsed_url.path == "/answer.html":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             user_query = query_params.get('query', [''])[0]
             
             if user_query:
-                print(f"\n[СЕРВЕР] Получен новый поисковый запрос: '{user_query}'")
+                print(f"\n[СЕРВЕР] Запрос от пользователя: '{user_query}'")
+                print("[СЕРВЕР] Обращение к нейросети Google Gemini AI...")
                 
-                # Запускаем полный цикл нашего автономного ИИ-движка!
-                print("[СЕРВЕР] Шаг 1: Запуск автономного поиска...")
-                raw_info = search_internet(user_query)
+                # Получаем НАСТОЯЩИЕ тезисы прямо от живого ИИ!
+                live_theses = generate_summary(user_query)
+                print(f"[СЕРВЕР] Получено тезисов: {len(live_theses)}")
                 
-                print("[СЕРВЕР] Шаг 2: Анализ текста и создание тезисов...")
-                ready_theses = generate_summary(raw_info)
-                
-                print("[СЕРВЕР] Шаг 3: Монтаж нового MP4 видеоролика...")
-                generate_video(ready_theses, user_query)
-                
-                print("[СЕРВЕР] Успех! Видео перегенерировано под текущий запрос.")
+                # Читаем оригинальный файл answer.html
+                try:
+                    with open("answer.html", "r", encoding="utf-8") as f:
+                        html_content = f.read()
+                    
+                    # Магия: на лету заменяем демонстрационный текст в HTML на ответы ИИ!
+                    thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in live_theses])
+                    
+                    # Вживляем новые тезисы в структуру страницы
+                    updated_html = html_content.replace(
+                        '<ul class="thesis-list">', 
+                        f'<ul class="thesis-list">{thesis_blocks}<!--'
+                    ).replace(
+                        '</ul>',
+                        '--></ul>'
+                    )
+                    
+                    # Отправляем обновленную страницу в браузер
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(updated_html.encode("utf-8"))
+                    return
+                except Exception as e:
+                    print(f"[Ошибка подмены контента]: {e}")
 
-        # Отдаем файлы (html, css, mp4) браузеру как обычный веб-сервер
         return super().do_GET()
 
 def run_server():
-    # Запускаем сервер на порту 8000
     server_address = ('', 8000)
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("==================================================")
-    print("🚀 ИИ-МОСТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
+    print("🚀 ИИ-МОСТ ОБНОВЛЕН И ГОТОВ К ТЕСТУ GEMINI AI!")
     print("Адрес локального сайта: http://localhost:8000")
-    print("Чтобы остановить сервер, нажмите Ctrl + C в терминале")
     print("==================================================")
     
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n[СЕРВЕР] Работа завершена. До встречи!")
+        print("\n[СЕРВЕР] Сервер остановлен.")
         httpd.server_close()
 
 if __name__ == "__main__":
