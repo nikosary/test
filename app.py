@@ -17,7 +17,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         # Перехватываем переход на страницу результатов
         if parsed_url.path == "/answer.html":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            user_query = query_params.get('query', [''])[0]
+            user_query = query_params.get('query', [''])
             
             if user_query:
                 print(f"\n[СЕРВЕР] Запрос от пользователя: '{user_query}'")
