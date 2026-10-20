@@ -1,6 +1,7 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import sys
+import os  # Добавили для чтения настроек хостинга
 
 # Подключаем наш ИИ-суммаризатор
 try:
@@ -66,11 +67,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
 def run_server():
-    server_address = ('', 8000)
+    # Магия для хостинга: считываем порт, который дал Render (по умолчанию 10000), 
+    # либо оставляем 8000 для домашнего компьютера
+    port = int(os.environ.get("PORT", 8000))
+    server_address = ('', port)
+    
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("==================================================")
-    print("🚀 ИИ-МОСТ ОБНОВЛЕН И ГОТОВ К ТЕСТУ GEMINI AI!")
-    print("Адрес локального сайта: http://localhost:8000")
+    print("🚀 ИИ-МОСТ ОБНОВЛЕН И ПОДСТРОЕН ПОД РЕНДЕР!")
+    print(f"Сервер запущен на порту: {port}")
     print("==================================================")
     
     try:
