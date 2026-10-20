@@ -1,7 +1,6 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import sys
-import json
 
 # Подключаем наш ИИ-суммаризатор
 try:
@@ -32,17 +31,28 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     with open("answer.html", "r", encoding="utf-8") as f:
                         html_content = f.read()
                     
-                    # Магия: на лету заменяем демонстрационный текст в HTML на ответы ИИ!
+                    # Генерируем новые элементы списка из ответов ИИ
                     thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in live_theses])
                     
-                    # Вживляем новые тезисы в структуру страницы
-                    updated_html = html_content.replace(
-                        '<ul class="thesis-list">', 
-                        f'<ul class="thesis-list">{thesis_blocks}<!--'
-                    ).replace(
-                        '</ul>',
-                        '--></ul>'
-                    )
+                    # Безопасно вырезаем старый демонстрационный блок списка вместе с его содержимым
+                    # и заменяем его на чистый список с новыми тезисами ИИ!
+                    start_marker = '<ul class="thesis-list">'
+                    end_marker = '</ul>'
+                    
+                    start_idx = html_content.find(start_marker)
+                    end_idx = html_content.find(end_marker)
+                    
+                    if start_idx != -1 and end_idx != -1:
+                        # Собираем страницу заново без использования ломающих комментариев
+                        end_idx += len(end_marker)
+                        updated_html = (
+                            html_content[:start_idx] + 
+                            f'<ul class="thesis-list">{thesis_blocks}</ul>' + 
+                            html_content[end_idx:]
+                        )
+                    else:
+                        # Если маркеры почему-то не найдены, делаем простую замену
+                        updated_html = html_content.replace(start_marker, f'{start_marker}{thesis_blocks}')
                     
                     # Отправляем обновленную страницу в браузер
                     self.send_response(200)
