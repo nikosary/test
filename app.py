@@ -2,6 +2,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import sys
 import os
+import time  # Добавили для фиксации задержки монтажа
 
 # Подключаем наш ИИ-суммаризатор
 try:
@@ -16,7 +17,7 @@ try:
 except ImportError:
     generate_video = None
 
-# ПОДКЛЮЧАЕМ НАШ МОДУЛЬ АВТО-ОЗВУЧКИ
+# Подключаем наш модуль авто-озвучки
 try:
     from voice_engine import generate_voice
 except ImportError:
@@ -55,7 +56,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 live_theses = generate_summary(user_query)
                 print(f"[СЕРВЕР] Получено тезисов: {len(live_theses)}")
                 
-                # 2. ЗАПУСКАЕМ АВТО-ОЗВУЧКУ (Создаем свежий audio.mp3 под текущий запрос)
+                # 2. Запускаем авто-озвучку
                 if generate_voice:
                     try:
                         print("[СЕРВЕР] Отправка тезисов ИИ на озвучку роботом...")
@@ -63,12 +64,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     except Exception as voice_err:
                         print(f"[Ошибка в блоке авто-озвучки]: {voice_err}")
                 
-                # 3. Запускаем генерацию видеоролика (Склеиваем свежий звук в видео)
+                # 3. Запускаем генерацию видеоролика
                 print("[СЕРВЕР] Запуск видеогенератора для создания output.mp4...")
                 if generate_video:
                     try:
                         generate_video(user_query) 
-                        print("[СЕРВЕР] Видео успешно создано и сохранено на сервере!")
+                        print("[СЕРВЕР] Ожидание финальной записи видеофайла на диск...")
+                        # Даем серверу честные 4 секунды на то, чтобы FFmpeg успел закрыть файл
+                        time.sleep(4)
+                        print("[СЕРВЕР] Видео успешно сохранено и готово к отдаче!")
                     except Exception as ev:
                         print(f"[Ошибка генерации видео]: {ev}")
                 else:

@@ -1,7 +1,7 @@
 import subprocess
 import os
 import sys
-from datetime import datetime  # Добавили встроенные часы
+from datetime import datetime
 
 def wrap_text(text, max_chars=40):
     words = text.split()
@@ -23,12 +23,10 @@ def wrap_text(text, max_chars=40):
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
     print("[ИИ Видео] Запуск монтажа с авто-датой, временем и вопросом...")
     
-    # СЧИТЫВАЕМ ВРЕМЯ: Автоматически берем текущую дату и время на сервере
     now = datetime.now()
-    current_date = now.strftime("%d.10.2026") # Жестко фиксируем победный октябрь 2026
-    current_time = now.strftime("%H:%M:%S")    # Точное время до секунд (например, 19:01:15)
+    current_date = now.strftime("%d.10.2026") 
+    current_time = now.strftime("%H-%M-%S") # Заменили двоеточия на дефисы для безопасности Linux
     
-    # Подключаем суммаризатор для получения тезисов ИИ
     try:
         from summarizer import generate_summary
         theses = generate_summary(query_text)
@@ -38,14 +36,12 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
-    # Форматируем тексты для слайдов
-    # Первый слайд: выводим сам вопрос пользователя и время старта
-    q_wrapped = wrap_text(query_text.replace("'", "").replace('"', ''))
-    title_text = f"ВОПРОС: {q_wrapped}\\\n\\\nДата: {current_date}\\\nВремя: {current_time}"
+    # Форматируем безопасный текст для титров (без двоеточий)
+    q_wrapped = wrap_text(query_text.replace("'", "").replace('"', '').replace(':', ''))
+    title_text = f"ZAPROS  {q_wrapped}\\\n\\\nDATA  {current_date}\\\nVREMYA  {current_time}"
     
-    # Второй и третий слайды: выводим тезисы ответов
-    t2 = wrap_text(theses[0].replace("'", "").replace('"', ''))
-    t3 = wrap_text(theses[1].replace("'", "").replace('"', ''))
+    t2 = wrap_text(theses[0].replace("'", "").replace('"', '').replace(':', ''))
+    t3 = wrap_text(theses[1].replace("'", "").replace('"', '').replace(':', ''))
 
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
@@ -59,12 +55,11 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = "arial.ttf"
     
-    # Команда FFmpeg: Слайд 1 (Зеленый) показывает вопрос и время. Слайды 2 и 3 показывают ответы!
     command = [
         ffmpeg_path, "-y",
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", # 1. Зеленый
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=854x480:r=10", # 2. Синий
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=854x480:r=10", # 3. Серый
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=854x480:r=10", 
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=854x480:r=10", 
         "-i", audio_file,
         
         "-filter_complex", 
@@ -92,7 +87,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     try:
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         if os.path.exists(output_video):
-            print(f"[ИИ Видео] Фильм с часами и вопросом успешно смонтирован!")
+            print(f"[ИИ Видео] Фильм с часами успешно смонтирован!")
             return output_video
         else: return None
     except Exception as e:
