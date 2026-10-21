@@ -34,6 +34,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     except Exception:
         theses = ["Первый тезис от ИИ", "Второй тезис от ИИ", "Третий тезис от ИИ"]
 
+    # Гарантируем, что у нас в списке ровно 3 тезиса
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
@@ -43,13 +44,17 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         clean_query = clean_query[:27] + "..."
 
     # Форматируем строчки БЕЗ опасных скрытых символов для первого слайда Linux
-    
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
-
     
-    # Ответы ИИ на 2 и 3 слайдах бьем аккуратно по строкам
-    t2 = wrap_text(theses.replace("'", "").replace('"', '').replace(':', ''))
-    t3 = wrap_text(theses.replace("'", "").replace('"', '').replace(':', ''))
+    # ИСПРАВЛЕНИЕ: Берем каждый тезис из списка по его номеру (0, 1, 2) и очищаем как строку!
+    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '')
+    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '')
+    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '')
+
+    # Накладываем автоперенос строк на очищенный текст
+    t1_wrapped = wrap_text(txt1)
+    t2_wrapped = wrap_text(txt2)
+    t3_wrapped = wrap_text(txt3)
 
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
@@ -63,7 +68,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = "arial.ttf"
     
-    # Новая чистая команда FFmpeg, которая запустится на Render со 100% гарантией
+    # Чистая команда FFmpeg, которая запустится на Render со 100% гарантией
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -72,13 +77,13 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         "-i", audio_file,
         
         "-filter_complex", 
-        f"[0:v] drawtext=fontfile={font_path}:text='{title_text}':fontcolor=white:fontsize=20:"
+        f"[0:v] drawtext=fontfile={font_path}:text='{title_text}':fontcolor=white:fontsize=18:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v1];"
         
-        f"[1:v] drawtext=fontfile={font_path}:text='{t2}':fontcolor=white:fontsize=24:"
+        f"[1:v] drawtext=fontfile={font_path}:text='{t2_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v2];"
         
-        f"[2:v] drawtext=fontfile={font_path}:text='{t3}':fontcolor=white:fontsize=24:"
+        f"[2:v] drawtext=fontfile={font_path}:text='{t3_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v3];"
         
         "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
