@@ -4,11 +4,18 @@ import time
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
     print("[ИИ Видео] Запуск сверхнадежного автономного видеомонтажа...")
+    import os
+    import sys
     
-    ffmpeg_path = os.path.abspath("ffmpeg.exe")
-    if not os.path.exists(ffmpeg_path):
-        print("[Ошибка] Файл ffmpeg.exe не найден в папке проекта!")
-        return None
+    # Умная проверка системы: на Windows берем ffmpeg.exe, на Linux (Render) — системный ffmpeg
+    if sys.platform.startswith("win"):
+        ffmpeg_path = os.path.abspath("ffmpeg.exe")
+        if not os.path.exists(ffmpeg_path):
+            print("[Ошибка] Файл ffmpeg.exe не найден в папке проекта!")
+            return None
+    else:
+        # В облаке Linux (Render) утилита ffmpeg вызывается просто по системному имени
+        ffmpeg_path = "ffmpeg"
 
     # Жестко удаляем старые остатки файлов
     if os.path.exists(output_video):
@@ -17,7 +24,8 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         except Exception:
             pass
 
-    print("[ИИ Видео] FFmpeg запускает прямую компиляцию медиапотоков...")
+    print(f"[ИИ Видео] FFmpeg ({ffmpeg_path}) запускает прямую компиляцию медиапотоков...")
+
     
     # Самая простая и базовая в мире команда: генерирует чистый черный экран 
     # строго под длину твоего сочного звука audio.mp3. 
