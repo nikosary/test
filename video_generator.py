@@ -46,12 +46,12 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     # Форматируем строчки БЕЗ опасных скрытых символов для первого слайда Linux
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
     
-    # ПРАВИЛЬНОЕ ИСПРАВЛЕНИЕ: Берем каждый тезис из списка по его индексу и очищаем как строку
-    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
-    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
-    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
+    # ВЕЛИКОЕ ИСПРАВЛЕНИЕ: Берем каждый тезис СТРОГО по его номеру (0, 1, 2) из списка и очищаем как чистый текст!
+    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '')
+    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '')
+    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '')
 
-    # Накладываем автоперенос строк на очищенный текст
+    # Накладываем автоперенос строк на очищенный текст каждого тезиса
     t1_wrapped = wrap_text(txt1)
     t2_wrapped = wrap_text(txt2)
     t3_wrapped = wrap_text(txt3)
