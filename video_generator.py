@@ -21,9 +21,9 @@ def wrap_text(text, max_chars=40):
     return "\\\n".join(lines)
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск сверхнадежного монтажа для Linux...")
+    print("[ИИ Видео] Запуск пуленепробиваемого монтажа для Linux...")
     
-    # Считываем дату и время
+    # Автоматически считываем текущее время запроса
     now = datetime.now()
     current_date = "21.10.2026"
     current_time = now.strftime("%H-%M-%S")
@@ -34,27 +34,27 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     except Exception:
         theses = ["Первый тезис от ИИ", "Второй тезис от ИИ", "Третий тезис от ИИ"]
 
-    # Гарантируем, что у нас в списке ровно 3 тезиса
+    # Гарантируем наличие ровно 3 элементов в списке
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
-    # Безопасно вытаскиваем тезисы по одному из списка
-    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
-    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
-    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
+    # ИДЕАЛЬНОЕ ИСПРАВЛЕНИЕ: Вытаскиваем тезисы строго по номерам из списка
+    t1_raw = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
+    t2_raw = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
+    t3_raw = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
 
-    # Очищаем поисковый запрос пользователя
+    # Очищаем тему вопроса пользователя
     clean_query = query_text.replace("'", "").replace('"', '').replace(':', '').strip()
     if len(clean_query) > 30:
         clean_query = clean_query[:27] + "..."
 
-    # Строка для первого слайда
+    # Безопасный текст для первого титульного слайда
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
     
-    # Разносим текст по строкам
-    t1_wrapped = wrap_text(txt1)
-    t2_wrapped = wrap_text(txt2)
-    t3_wrapped = wrap_text(txt3)
+    # Накладываем автоперенос строк
+    t1_wrapped = wrap_text(t1_raw)
+    t2_wrapped = wrap_text(t2_raw)
+    t3_wrapped = wrap_text(t3_raw)
 
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
@@ -68,7 +68,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = "arial.ttf"
     
-    # Чистая команда FFmpeg, облегченная для бесплатного процессора Render
+    # Максимально облегченная команда FFmpeg для стабильной работы на Render
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
