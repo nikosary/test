@@ -1,64 +1,68 @@
 import subprocess
 import os
-import time
+import sys
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск сверхнадежного автономного видеомонтажа...")
-    import os
-    import sys
+    print("[ИИ Видео] Запуск динамического монтажа с авто-генерацией цветных фонов...")
     
-    # Умная проверка системы: на Windows берем ffmpeg.exe, на Linux (Render) — системный ffmpeg
+    # Умная проверка путей FFmpeg
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
         if not os.path.exists(ffmpeg_path):
-            print("[Ошибка] Файл ffmpeg.exe не найден в папке проекта!")
+            print("[Ошибка] Файл ffmpeg.exe не найден!")
             return None
     else:
-        # В облаке Linux (Render) утилита ffmpeg вызывается просто по системному имени
         ffmpeg_path = "ffmpeg"
 
-    # Жестко удаляем старые остатки файлов
+    # Жестко удаляем старое видео
     if os.path.exists(output_video):
-        try:
-            os.remove(output_video)
-        except Exception:
-            pass
+        try: os.remove(output_video)
+        except Exception: pass
 
-    print(f"[ИИ Видео] FFmpeg ({ffmpeg_path}) запускает прямую компиляцию медиапотоков...")
-
+    print("[ИИ Видео] Настройка генераторов цвета и бегущих строк...")
     
-    # Самая простая и базовая в мире команда: генерирует чистый черный экран 
-    # строго под длину твоего сочного звука audio.mp3. 
-    # Этот способ работает со 100% гарантией на любом компьютере!
+    # Магия FFmpeg: Мы создаем 3 разных виртуальных фона без использования физических картинок!
+    # 1-й фон: Темно-зеленый (Эко-стиль проекта) на первые 7 секунд
+    # 2-й фон: Приглушенный синий на следующие 7 секунд
+    # 3-й фон: Серый графитовый на финальные 7 секунд
     command = [
-        ffmpeg_path,
-        "-y",
-        "-f", "lavfi",
-        "-i", "anullsrc=r=44100:cl=stereo", # Базовый аудио-генератор (предохранитель)
-        "-i", audio_file,                  # Наш настоящий ИИ-голос
-        "-c:v", "libx264",                 # Стандартный видеокодек
-        "-shortest",                       # Жестко задаем длину ролика 10 секунд для теста
-        "-pix_fmt", "yuv420p",             # Формат пикселей для плеера Chrome
-        "-map", "1:a",                     # Берем звук именно из нашего аудиофайла
+        ffmpeg_path, "-y",
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=1280x720:r=25", # Зеленый (0-7 сек)
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=1280x720:r=25", # Синий (7-14 сек)
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=1280x720:r=25", # Серый (14-21 сек)
+        "-i", audio_file,                                                 # Наш ИИ-голос
+        
+        # Фильтр склейки фонов и наложения крупного белого текста по центру экрана
+        "-filter_complex", 
+        "[0:v][1:v][2:v] concat=n=3:v=1:a=0 [v_init];"
+        "[v_init] drawtext=text='CHISTYI KOD 2026 . CLOUD FINAL':fontcolor=white:fontsize=42:"
+        "x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v_final]",
+        
+        "-map", "[v_final]",                  # Забираем готовое смонтированное видео со сменой цветов
+        "-map", "3:a",                        # Забираем звук из аудиофайла
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-shortest",                          # Обрезаем ролик строго по длине звука
         output_video
     ]
 
     try:
-        # Запускаем скрытый монтаж
+        # Запускаем автоматический монтаж фильма в облаке
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         
         if os.path.exists(output_video):
             file_size = os.path.getsize(output_video) // 1024
-            print(f"[ИИ Видео] Успех! Настоящий MP4-ролик смонтирован: {os.path.abspath(output_video)}")
-            print(f"[ИИ Видео] Реальный вес готового видео: {file_size} КБ")
+            print(f"[ИИ Видео] Успех! Цветной ИИ-фильм смонтирован: {os.path.abspath(output_video)}")
             return output_video
         else:
-            print("[Ошибка] Файл видео не создался.")
+            print("[Ошибка] Фильм не создался.")
             return None
     except Exception as e:
-        print(f"[Ошибка монтажа]: {e}")
+        print(f"[Ошибка монтажа цветного видео]: {e}")
         return None
 
 if __name__ == "__main__":
-    print("=== ГЕНЕРАЛЬНЫЙ ТЕСТ АВТОНОМНОГО МОНТАЖА ===")
+    print("=== ГЕНЕРАЛЬНЫЙ ТЕСТ ЦВЕТНОГО КИНОТЕАТРА ===")
     generate_video("Тест")
