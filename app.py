@@ -16,11 +16,17 @@ try:
 except ImportError:
     generate_video = None
 
+# ПОДКЛЮЧАЕМ НАШ МОДУЛЬ АВТО-ОЗВУЧКИ
+try:
+    from voice_engine import generate_voice
+except ImportError:
+    generate_voice = None
+
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         
-        # МАГИЯ ДЛЯ ПЛЕЕРА: Если браузер запрашивает само видео output.mp4
+        # Если браузер запрашивает само видео output.mp4
         if parsed_url.path == "/output.mp4":
             if os.path.exists("output.mp4"):
                 try:
@@ -34,12 +40,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as ev_err:
                     print(f"[Ошибка отдачи видеофайла]: {ev_err}")
             else:
-                print("[Ошибка] Браузер запросил видео, но файл output.mp4 не найден на диске сервера!")
+                print("[Ошибка] Файл output.mp4 не найден на диске сервера!")
         
         # Перехватываем переход на страницу результатов
         if parsed_url.path == "/answer.html":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            user_query = query_params.get('query', [''])[0]
+            user_query = query_params.get('query', [''])
             
             if user_query:
                 print(f"\n[СЕРВЕР] Запрос от пользователя: '{user_query}'")
@@ -49,7 +55,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 live_theses = generate_summary(user_query)
                 print(f"[СЕРВЕР] Получено тезисов: {len(live_theses)}")
                 
-                # 2. Запускаем генерацию видеоролика
+                # 2. ЗАПУСКАЕМ АВТО-ОЗВУЧКУ (Создаем свежий audio.mp3 под текущий запрос)
+                if generate_voice:
+                    try:
+                        print("[СЕРВЕР] Отправка тезисов ИИ на озвучку роботом...")
+                        generate_voice(live_theses)
+                    except Exception as voice_err:
+                        print(f"[Ошибка в блоке авто-озвучки]: {voice_err}")
+                
+                # 3. Запускаем генерацию видеоролика (Склеиваем свежий звук в видео)
                 print("[СЕРВЕР] Запуск видеогенератора для создания output.mp4...")
                 if generate_video:
                     try:
@@ -58,11 +72,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     except Exception as ev:
                         print(f"[Ошибка генерации видео]: {ev}")
                 else:
-                    # Временная заглушка, если файл не импортировался
                     with open("output.mp4", "wb") as f:
                         f.write(b"")
                 
-                # 3. Читаем оригинальный файл answer.html и подставляем тезисы
+                # 4. Читаем оригинальный файл answer.html и подставляем тезисы
                 try:
                     with open("answer.html", "r", encoding="utf-8") as f:
                         html_content = f.read()
