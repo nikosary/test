@@ -46,12 +46,12 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     # Форматируем строчки БЕЗ опасных скрытых символов для первого слайда Linux
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
     
-    # ВЕЛИКОЕ ИСПРАВЛЕНИЕ: Берем каждый тезис СТРОГО по его номеру (0, 1, 2) из списка и очищаем как чистый текст!
-    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '')
-    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '')
-    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '')
+    # ИСПРАВЛЕНИЕ: Берем строго 1-й, 2-й и 3-й элементы из списка по очереди и превращаем в безопасный текст
+    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
+    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
+    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').replace('[', '').replace(']', '')
 
-    # Накладываем автоперенос строк на очищенный текст каждого тезиса
+    # Накладываем автоперенос строк на очищенный текст каждого тезиса отдельно
     t1_wrapped = wrap_text(txt1)
     t2_wrapped = wrap_text(txt2)
     t3_wrapped = wrap_text(txt3)
@@ -68,7 +68,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = "arial.ttf"
     
-    # Чистая команда FFmpeg, которая запустится на Render со 100% гарантией
+    # Абсолютно чистая команда FFmpeg для Render
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -83,7 +83,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         f"[1:v] drawtext=fontfile={font_path}:text='{t2_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v2];"
         
-        f"[2:v] drawtext=fontfile={font_path}:text='{t3_wrapped}':fontcolor=white:fontsize=22:"
+        f"[2:v] drawtext=fontfile={font_path}:text='{txt3}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v3];"
         
         "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
