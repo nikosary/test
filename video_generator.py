@@ -46,7 +46,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     # Форматируем строчки БЕЗ опасных скрытых символов для первого слайда Linux
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
     
-    # ВЕЛИКОЕ ИСПРАВЛЕНИЕ: Берем строго 1-й, 2-й и 3-й элементы из списка отдельно по их индексам, [1], [2]!
+    # ИСПРАВЛЕНИЕ: Берем строго 1-й, 2-й и 3-й элементы из списка отдельно по их индексам, [1], [2]!
     txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
     txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
     txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
