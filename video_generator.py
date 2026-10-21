@@ -3,8 +3,24 @@ import os
 import sys
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск динамического монтажа с авто-генерацией цветных фонов...")
+    print("[ИИ Видео] Запуск динамического монтажа с РУССКИМИ тезисами ИИ...")
     
+    # Подключаем наш суммаризатор, чтобы взять живой текст для титров
+    try:
+        from summarizer import generate_summary
+        theses = generate_summary(query_text)
+    except Exception:
+        theses = ["Первый тезис проекта", "Второй тезис проекта", "Третий тезис проекта"]
+
+    # Гарантируем, что у нас ровно 3 тезиса (дописываем заглушки, если ИИ дал меньше)
+    while len(theses) < 3:
+        theses.append("Чистый код 2026")
+
+    # Очищаем текст от кавычек и опасных символов, которые могут сломать FFmpeg
+    t1 = theses[0].replace("'", "").replace('"', '')
+    t2 = theses[1].replace("'", "").replace('"', '')
+    t3 = theses[2].replace("'", "").replace('"', '')
+
     # Умная проверка путей FFmpeg
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
@@ -19,50 +35,54 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         try: os.remove(output_video)
         except Exception: pass
 
-    print("[ИИ Видео] Настройка генераторов цвета и бегущих строк...")
+    # Проверяем наш файл шрифта
+    font_path = "arial.ttf"
+    if not os.path.exists(font_path):
+        print("[Предупреждение] Шрифт arial.ttf не найден в папке проекта!")
+
+    print("[ИИ Видео] Компиляция видеопотоков и наложение русских титров...")
     
-    # Магия FFmpeg: Мы создаем 3 разных виртуальных фона без использования физических картинок!
-    # 1-й фон: Темно-зеленый (Эко-стиль проекта) на первые 7 секунд
-    # 2-й фон: Приглушенный синий на следующие 7 секунд
-    # 3-й фон: Серый графитовый на финальные 7 секунд
+    # Команда генерирует 3 цветных экрана и накладывает на КАЖДЫЙ свой собственный тезис ИИ!
     command = [
         ffmpeg_path, "-y",
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", # Зеленый (0-7 сек)
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=854x480:r=10", # Синий (7-14 сек)
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=854x480:r=10", # Серый (14-21 сек)
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", # Зеленый фон
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=854x480:r=10", # Синий фон
+        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=854x480:r=10", # Серый фон
         "-i", audio_file,                                                 # Наш ИИ-голос
         
-        # Фильтр склейки фонов и наложения крупного белого текста по центру экрана
+        # Сложнейшая магия фильтров: накладываем русский текст со шрифтом Arial
         "-filter_complex", 
-        "[0:v][1:v][2:v] concat=n=3:v=1:a=0 [v_init];"
-        "[v_init] drawtext=text='CHISTYI KOD 2026 . CLOUD FINAL':fontcolor=white:fontsize=42:"
-        "x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v_final]",
+        f"[0:v] drawtext=fontfile={font_path}:text='{t1}':fontcolor=white:fontsize=24:"
+        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v1];"
         
-        "-map", "[v_final]",                  # Забираем готовое смонтированное видео со сменой цветов
+        f"[1:v] drawtext=fontfile={font_path}:text='{t2}':fontcolor=white:fontsize=24:"
+        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v2];"
+        
+        f"[2:v] drawtext=fontfile={font_path}:text='{t3}':fontcolor=white:fontsize=24:"
+        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v3];"
+        
+        "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
+        
+        "-map", "[v_final]",                  # Забираем готовое видео с русскими титрам
         "-map", "3:a",                        # Забираем звук из аудиофайла
         "-c:v", "libx264",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
-        "-shortest",                          # Обрезаем ролик строго по длине звука
+        "-shortest",                          # Обрезаем по длине звука
         output_video
     ]
 
     try:
-        # Запускаем автоматический монтаж фильма в облаке
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        
         if os.path.exists(output_video):
-            file_size = os.path.getsize(output_video) // 1024
-            print(f"[ИИ Видео] Успех! Цветной ИИ-фильм смонтирован: {os.path.abspath(output_video)}")
+            print(f"[ИИ Видео] Успех! Настоящий фильм с русскими титрами смонтирован!")
             return output_video
         else:
-            print("[Ошибка] Фильм не создался.")
             return None
     except Exception as e:
-        print(f"[Ошибка монтажа цветного видео]: {e}")
+        print(f"[Ошибка монтажа]: {e}")
         return None
 
 if __name__ == "__main__":
-    print("=== ГЕНЕРАЛЬНЫЙ ТЕСТ ЦВЕТНОГО КИНОТЕАТРА ===")
     generate_video("Тест")
