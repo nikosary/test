@@ -71,7 +71,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         generate_video(user_query) 
                         print("[СЕРВЕР] Ожидание финальной записи видеофайла на диск...")
                         # Даем серверу честные 4 секунды на то, чтобы FFmpeg успел закрыть файл
-                        time.sleep(4)
+                        time.sleep(12)
                         print("[СЕРВЕР] Видео успешно сохранено и готово к отдаче!")
                     except Exception as ev:
                         print(f"[Ошибка генерации видео]: {ev}")
