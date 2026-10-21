@@ -5,199 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Хочу знать — Автономный ИИ-сервис контент-маркетинга</title>
     <style>
-        /* Общие стили и сброс */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         :root {
-            --primary-green: #2d5a27;      /* Хвойно-зелёный */
-            --light-green: #4e8746;        /* Эко-зелёный акцентный */
-            --bg-color: #f4f7f4;           /* Светлый эко-фон */
-            --text-color: #2c3e2b;         /* Тёмно-зелёный текст */
+            --primary-green: #2d5a27;
+            --light-green: #4e8746;
+            --bg-color: #f4f7f4;
+            --text-color: #2c3e2b;
             --white: #ffffff;
             --gray-light: #e2ebe2;
             --shadow: 0 4px 20px rgba(45, 90, 39, 0.1);
         }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
+        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; font-weight: 700; color: var(--primary-green); text-decoration: none; }
+        .logo svg { fill: var(--light-green); width: 28px; height: 28px; }
+        nav { display: flex; gap: 1.5rem; }
+        nav a { color: var(--text-color); text-decoration: none; font-weight: 500; transition: color 0.3s; }
+        nav a:hover, nav a.active { color: var(--primary-green); border-bottom: 2px solid var(--primary-green); }
+        main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; text-align: center; }
+        .search-container { background: var(--white); padding: 3rem 2.5rem; border-radius: 16px; box-shadow: var(--shadow); max-width: 700px; width: 100%; border-top: 5px solid var(--primary-green); }
+        h1 { font-size: 2.2rem; color: var(--primary-green); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1rem; color: #667c65; margin-bottom: 2.5rem; }
+        .search-form { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+        
+        /* Стиль для обертки поля ввода и микрофона */
+        .input-wrapper { position: relative; width: 100%; display: flex; align-items: center; }
+        .search-input { width: 100%; padding: 1.2rem 4rem 1.2rem 1.5rem; font-size: 1.1rem; border: 2px solid var(--gray-light); border-radius: 30px; outline: none; transition: all 0.3s ease; color: var(--text-color); background-color: #fafdfa; }
+        .search-input:focus { border-color: var(--light-green); box-shadow: 0 0 10px rgba(78, 135, 70, 0.2); background-color: var(--white); }
+        
+        /* КНОПКА МИКРОФОНА */
+        .mic-btn { position: absolute; right: 15px; background: none; border: none; cursor: pointer; color: var(--light-green); display: flex; align-items: center; justify-content: center; padding: 5px; transition: all 0.2s; }
+        .mic-btn:hover { color: var(--primary-green); transform: scale(1.1); }
+        .mic-btn.listening { color: red; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /* Шапка сайта */
-        header {
-            background-color: var(--white);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-green);
-            text-decoration: none;
-        }
-
-        .logo svg {
-            fill: var(--light-green);
-            width: 28px;
-            height: 28px;
-        }
-
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-
-        nav a {
-            color: var(--text-color);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-
-        nav a:hover, nav a.active {
-            color: var(--primary-green);
-            border-bottom: 2px solid var(--primary-green);
-        }
-
-        /* Основной контент */
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .search-container {
-            background: var(--white);
-            padding: 3rem 2.5rem;
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            max-width: 700px;
-            width: 100%;
-            border-top: 5px solid var(--primary-green);
-        }
-
-        h1 {
-            font-size: 2.2rem;
-            color: var(--primary-green);
-            margin-bottom: 0.5rem;
-        }
-
-        .subtitle {
-            font-size: 1rem;
-            color: #667c65;
-            margin-bottom: 2.5rem;
-        }
-
-        /* Форма поиска */
-        .search-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            width: 100%;
-        }
-
-        .input-wrapper {
-            position: relative;
-            width: 100%;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 1.2rem 1.5rem;
-            font-size: 1.1rem;
-            border: 2px solid var(--gray-light);
-            border-radius: 30px;
-            outline: none;
-            transition: all 0.3s ease;
-            color: var(--text-color);
-            background-color: #fafdfa;
-        }
-
-        .search-input:focus {
-            border-color: var(--light-green);
-            box-shadow: 0 0 10px rgba(78, 135, 70, 0.2);
-            background-color: var(--white);
-        }
-
-        .submit-btn {
-            background-color: var(--primary-green);
-            color: var(--white);
-            border: none;
-            padding: 1.1rem 2.5rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 4px 12px rgba(45, 90, 39, 0.2);
-        }
-
-        .submit-btn:hover {
-            background-color: var(--light-green);
-        }
-
-        .submit-btn:active {
-            transform: scale(0.98);
-        }
-
-        /* Эко-футер */
-        footer {
-            background-color: var(--primary-green);
-            color: #e2ebe2;
-            padding: 2rem;
-            text-align: center;
-            font-size: 0.9rem;
-            margin-top: auto;
-            border-top: 4px solid var(--light-green);
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .footer-tagline {
-            font-style: italic;
-            opacity: 0.9;
-        }
-
-        .footer-tech {
-            font-size: 0.8rem;
-            opacity: 0.7;
-            margin-top: 5px;
-        }
+        .submit-btn { background-color: var(--primary-green); color: var(--white); border: none; padding: 1.1rem 2.5rem; font-size: 1.1rem; font-weight: 600; border-radius: 30px; cursor: pointer; transition: background-color 0.3s ease, transform 0.1s ease; box-shadow: 0 4px 12px rgba(45, 90, 39, 0.2); }
+        .submit-btn:hover { background-color: var(--light-green); }
+        .submit-btn:active { transform: scale(0.98); }
+        footer { background-color: var(--primary-green); color: #e2ebe2; padding: 2rem; text-align: center; font-size: 0.9rem; margin-top: auto; border-top: 4px solid var(--light-green); }
+        .footer-content { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; align-items: center; }
     </style>
 </head>
 <body>
 
-    <!-- Шапка -->
     <header>
         <a href="index.html" class="logo">
-            <!-- Иконка лампочки в эко-стиле -->
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 24 24" xmlns="http://w3.org">
                 <path d="M12 2C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1zM9 19h6v1H9zm2 2h2v1h-2z"/>
             </svg>
             Хочу знать
@@ -208,7 +61,6 @@
         </nav>
     </header>
 
-    <!-- Главная страница -->
     <main>
         <div class="search-container">
             <h1>Какой контент создадим сегодня?</h1>
@@ -216,21 +68,76 @@
             
             <form class="search-form" action="process.html" method="GET">
                 <div class="input-wrapper">
-                    <input type="text" name="query" class="search-input" placeholder="Введите ваш вопрос или тему для видеоролика..." required autocomplete="off">
+                    <input type="text" id="search-input" name="query" class="search-input" placeholder="Введите вопрос или нажмите микрофон..." required autocomplete="off">
+                    
+                    <!-- ИКОНКА МИКРОФОНА -->
+                    <button type="button" id="mic-button" class="mic-btn" title="Голосовой ввод">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
                 </div>
                 <button type="submit" class="submit-btn">Запустить генерацию</button>
             </form>
         </div>
     </main>
 
-    <!-- Эко-футер -->
     <footer>
         <div class="footer-content">
             <div>&copy; 2026 Сервис «Хочу знать». Все права защищены.</div>
-            <div class="footer-tagline">🌿 Чистый код, чистая планета. Разработано в Devin AI эко-стиле.</div>
-            <div class="footer-tech">Стек: HTML5, CSS3, JavaScript | Движок генерации: Python 3.14.x</div>
+            <div>🌿 Разработано по технологии голосового управления Nik & Maksim ИИ.</div>
         </div>
     </footer>
 
+    <!-- МАГИЯ ГОЛОСОВОГО ВВОДА -->
+    <script>
+        const micButton = document.getElementById('mic-button');
+        const searchInput = document.getElementById('search-input');
+
+        // Проверяем, поддерживает ли браузер распознавание речи
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'ru-RU'; // Настраиваем русский язык
+            recognition.interimResults = false;
+
+            micButton.addEventListener('click', () => {
+                if (micButton.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            recognition.onstart = () => {
+                micButton.classList.add('listening');
+                searchInput.placeholder = "Слушаю вас... Говорите";
+            };
+
+            recognition.onend = () => {
+                micButton.classList.remove('listening');
+                searchInput.placeholder = "Введите вопрос или нажмите микрофон...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                // Вставляем распознанный голос текстом в поле поиска!
+                searchInput.value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Ошибка распознавания: ", event.error);
+                micButton.classList.remove('listening');
+            };
+        } else {
+            // Если браузер старый и не умеет слушать голос
+            micButton.style.display = 'none';
+            console.log("Браузер не поддерживает Web Speech API");
+        }
+    </script>
 </body>
 </html>
