@@ -38,20 +38,20 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
-    # Очищаем поисковый запрос пользователя для безопасного вывода в одну строку
-    clean_query = query_text.replace("'", "").replace('"', '').replace(':', '').strip()
-    if len(clean_query) > 30:
-        clean_query = clean_query[:27] + "..."
-
-    # Форматируем строчки БЕЗ опасных скрытых символов для первого слайда Linux
-    title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
-    
-    # ИСПРАВЛЕНИЕ: Берем строго 1-й, 2-й и 3-й элементы из списка отдельно по их индексам
+    # Безопасно вытаскиваем тезисы по одному из списка
     txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
     txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
     txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
 
-    # Накладываем автоперенос строк на очищенный текст каждого тезиса отдельно
+    # Очищаем поисковый запрос пользователя
+    clean_query = query_text.replace("'", "").replace('"', '').replace(':', '').strip()
+    if len(clean_query) > 30:
+        clean_query = clean_query[:27] + "..."
+
+    # Строка для первого слайда
+    title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
+    
+    # Разносим текст по строкам
     t1_wrapped = wrap_text(txt1)
     t2_wrapped = wrap_text(txt2)
     t3_wrapped = wrap_text(txt3)
@@ -68,7 +68,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = "arial.ttf"
     
-    # Абсолютно чистая и проверенная команда FFmpeg для Render
+    # Чистая команда FFmpeg, облегченная для бесплатного процессора Render
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -80,10 +80,10 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         f"[0:v] drawtext=fontfile={font_path}:text='{title_text}':fontcolor=white:fontsize=18:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v1];"
         
-        f"[1:v] drawtext=fontfile={font_path}:text='{t2_wrapped}':fontcolor=white:fontsize=22:"
+        f"[1:v] drawtext=fontfile={font_path}:text='{t1_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v2];"
         
-        f"[2:v] drawtext=fontfile={font_path}:text='{t3_wrapped}':fontcolor=white:fontsize=22:"
+        f"[2:v] drawtext=fontfile={font_path}:text='{t2_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v3];"
         
         "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
