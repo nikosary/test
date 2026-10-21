@@ -10,16 +10,31 @@ except ImportError:
     print("[Ошибка] Не найден файл summarizer.py!")
     sys.exit(1)
 
-# ПОДКЛЮЧАЕМ НАШ ВИДЕОГЕНЕРАТОР
+# Подключаем наш видеогенератор
 try:
-    from video_generator import generate_video  # Предполагаем, что функция там называется так
+    from video_generator import generate_video
 except ImportError:
-    # Если функция называется иначе, сервер создаст пустой файл, чтобы плеер не выдавал 404
     generate_video = None
 
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
+        
+        # МАГИЯ ДЛЯ ПЛЕЕРА: Если браузер запрашивает само видео output.mp4
+        if parsed_url.path == "/output.mp4":
+            if os.path.exists("output.mp4"):
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-type", "video/mp4")
+                    self.send_header("Content-Length", str(os.path.getsize("output.mp4")))
+                    self.end_headers()
+                    with open("output.mp4", "rb") as video_file:
+                        self.wfile.write(video_file.read())
+                    return
+                except Exception as ev_err:
+                    print(f"[Ошибка отдачи видеофайла]: {ev_err}")
+            else:
+                print("[Ошибка] Браузер запросил видео, но файл output.mp4 не найден на диске сервера!")
         
         # Перехватываем переход на страницу результатов
         if parsed_url.path == "/answer.html":
@@ -28,23 +43,22 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             if user_query:
                 print(f"\n[СЕРВЕР] Запрос от пользователя: '{user_query}'")
-                print("[СЕРВЕР] Обращение к нейросети Google Gemini AI...")
                 
                 # 1. Получаем тезисы от ИИ
+                print("[СЕРВЕР] Обращение к нейросети Google Gemini AI...")
                 live_theses = generate_summary(user_query)
                 print(f"[СЕРВЕР] Получено тезисов: {len(live_theses)}")
                 
-                # 2. ЗАПУСКАЕМ ГЕНЕРАЦИЮ ВИДЕОРОЛИКА!
+                # 2. Запускаем генерацию видеоролика
                 print("[СЕРВЕР] Запуск видеогенератора для создания output.mp4...")
                 if generate_video:
                     try:
-                        # Передаем запрос или тезисы в твой генератор видео
                         generate_video(user_query) 
-                        print("[СЕРВЕР] Видео output.mp4 успешно сгенерировано!")
+                        print("[СЕРВЕР] Видео успешно создано и сохранено на сервере!")
                     except Exception as ev:
                         print(f"[Ошибка генерации видео]: {ev}")
                 else:
-                    # Если генератор не импортировался, создаем временную «заглушку»
+                    # Временная заглушка, если файл не импортировался
                     with open("output.mp4", "wb") as f:
                         f.write(b"")
                 
