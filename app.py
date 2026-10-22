@@ -60,7 +60,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            if not raw_query or not raw_query[0].strip():
+            if not raw_query or not raw_query.strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -204,7 +204,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                             self.wfile.write(chunk)
                     return
                 except Exception as ev_err:
-                    print(f"[СЕРВЕР] ❌ Ошибка передачи видеопотока: {ev_err}")
+                    print(f"[СЕРВЕР] ❌ Ошибка передачи videoпотока: {ev_err}")
                     return
             else:
                 self.send_error(404, "File Not Found")
