@@ -71,7 +71,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     slide_time = round(audio_duration / 3, 1)
     print(f"[ИИ Видео] Расчетная длина звука: {audio_duration} сек. Слайд: {slide_time} сек.")
 
-    # ИСПРАВЛЕНО: Извлекаем тезисы строго поштучно по их индексам (0, 1, 2) из списка, без опасного str(theses)
+    # Извлекаем тезисы строго поштучно по их индексам (0, 1, 2) из списка
     txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', ' ').strip()
     txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', ' ').strip()
     txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', ' ').strip()
@@ -80,7 +80,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     t2_wrapped = wrap_text(txt2)
     t3_wrapped = wrap_text(txt3)
 
-    # Безопасный текст для титульного слайда (без запрещенных палочек)
+    # Безопасный текст для титульного слайда
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {display_time}"
 
     if sys.platform.startswith("win"):
@@ -95,7 +95,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = find_font()
     
-    # Пуленепробиваемая команда FFmpeg с крупными часами и поштучными титрами
+    # ИСПРАВЛЕНО: Полностью убрали опасные одинарные кавычки вокруг путей шрифтов для Linux!
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -104,19 +104,12 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         "-i", audio_file,
         
         "-filter_complex", 
-        # Титульный экран: Вопрос сверху, а по центру КРУПНО желтая дата и время
-        f"[0:v] drawtext=fontfile='{font_path}':text='{q_wrapped}':fontcolor=white:fontsize=24:"
-        f"x=(w-text_w)/2:y=50:borderw=3:bordercolor=black [v1_title];"
-        f"[v1_title] drawtext=fontfile='{font_path}':text='{current_date}  {display_time}':fontcolor=yellow:fontsize=32:"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v1];"
+        f"[0:v] drawtext=fontfile={font_path}:text='{q_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=50:borderw=3:bordercolor=black [v1_title];"
+        f"[v1_title] drawtext=fontfile={font_path}:text='{current_date}  {display_time}':fontcolor=yellow:fontsize=32:x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v1];"
         
-        # Слайд 2: Первый тезис ИИ
-        f"[1:v] drawtext=fontfile='{font_path}':text='{t1_wrapped}':fontcolor=white:fontsize=22:"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v2];"
+        f"[1:v] drawtext=fontfile={font_path}:text='{t1_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v2];"
         
-        # Слайд 3: Второй тезис ИИ
-        f"[2:v] drawtext=fontfile='{font_path}':text='{t3_wrapped}':fontcolor=white:fontsize=22:"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v3];"
+        f"[2:v] drawtext=fontfile={font_path}:text='{t3_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v3];"
         
         "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
         
