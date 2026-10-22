@@ -44,7 +44,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "error", "message": "Пустой запрос"}).encode())
+                self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
             user_query = raw_query[0].strip()
@@ -100,6 +100,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                         video_ready = True
                         print("[БЭКЕНД] 🎉 Твой скрипт успешно смонтировал ролик!")
+                    else:
+                        print("[БЭКЕНД] ❌ Скрипт video_generator вернул пустой файл или None!")
                 except Exception as ev:
                     print(f"[БЭКЕНД] ❌ Ошибка внутри твоего видеогенератора: {ev}")
 
@@ -118,7 +120,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         ffmpeg_path, "-y",
                         "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=5:r=10",
                         "-vf", f"drawtext=text='{clean_text_screen}':fontcolor=white:fontsize=24:x=40:y=100",
-                        "-c:v", "libx262", "-pix_fmt", "yuv420p",
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
                         "output.mp4"
                     ]
                     
@@ -129,7 +131,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as ffmpeg_err:
                     print(f"[БЭКЕНД] ❌ Не удалось запустить экспресс-монтаж: {ffmpeg_err}")
 
-            # ДАЕМ СИСТЕМЕ ВРЕМЯ ЗАПИСАТЬ ФАЙЛ НА ДИСК ПОЛНОСТЬЮ
+            # Даем системе время зафиксировать файл полностью
             time.sleep(2.0)
 
             # Финальный ответ фронтенду
@@ -138,7 +140,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             response_data = {
                 "status": "ready",
-                "video_url": f"/output.mp4?t={int(time.time())}", # Добавили метку времени против кэша браузера
+                "video_url": f"/output.mp4?t={int(time.time())}",
                 "theses": last_generated_theses
             }
             self.wfile.write(json.dumps(response_data).encode())
@@ -166,7 +168,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     print(f"[СЕРВЕР] ❌ Ошибка передачи видеопотока в плеер: {ev_err}")
                     return
             else:
-                self.send_error(404, "Файл не найден")
+                # ИСПРАВЛЕНО СТРОГО НА ЛАТИНСКИЕ СИМВОЛЫ: Защита от UnicodeEncodeError на Render
+                print("[СЕРВЕР] ❌ Файл output.mp4 не найден на диске!")
+                self.send_error(404, "File Not Found")
                 return
 
         # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
@@ -211,7 +215,7 @@ def run_server():
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("="*60)
     print("🚀 ПОЛНАЯ СБОРКА СЕРВЕРА ОБНОВЛЕНА И ЗАПУЩЕНА!")
-    print(f"🌐 Открой в браузере: http://localhost:{port}")
+    print(f"🌐 Порт для Render: {port}")
     print("="*60)
     try: 
         httpd.serve_forever()
