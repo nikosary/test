@@ -7,7 +7,9 @@ def wrap_text(text, max_chars=35):
     """Разбивает длинный текст на аккуратные строки для экрана видео."""
     if not text:
         return ""
-    words = text.split()
+    # Убираем системные скобки, если они случайно пролетели
+    clean_text = str(text).replace("[", "").replace("]", "").replace("'", "").replace('"', '')
+    words = clean_text.split()
     lines = []
     current_line = []
     current_length = 0
@@ -40,7 +42,7 @@ def find_font():
     return "arial.ttf"
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск автономного монтажа с поштучным выбором тезисов...")
+    print("[ИИ Видео] Запуск пуленепробиваемого монтажа для Linux...")
     
     # Считываем реальное время и дату
     now = datetime.now()
@@ -49,7 +51,13 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     
     try:
         from summarizer import generate_summary
-        theses = generate_summary(query_text)
+        raw_theses = generate_summary(query_text)
+        
+        # СТРОГО: Если ИИ вернул строку, аккуратно бьем её на массив по точкам или переносам
+        if isinstance(raw_theses, str):
+            theses = [t.strip() for t in raw_theses.split(".") if t.strip()]
+        else:
+            theses = list(raw_theses)
     except Exception:
         theses = ["Первый тезис от ИИ", "Второй тезис от ИИ", "Третий тезис от ИИ"]
 
@@ -58,7 +66,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         theses.append("Чистый код 2026")
 
     # Очищаем тему вопроса пользователя
-    clean_query = query_text.replace("'", "").replace('"', '').replace(':', ' ').strip()
+    clean_query = str(query_text).replace("'", "").replace('"', '').replace(':', ' ').strip()
     if len(clean_query) > 40: clean_query = clean_query[:37] + "..."
     
     q_wrapped = wrap_text(clean_query, max_chars=30)
@@ -71,16 +79,16 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     slide_time = round(audio_duration / 3, 1)
     print(f"[ИИ Видео] Расчетная длина звука: {audio_duration} сек. Слайд: {slide_time} сек.")
 
-    # Извлекаем тезисы строго поштучно по их индексам (0, 1, 2) из списка
-    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', ' ').strip()
-    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', ' ').strip()
-    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', ' ').strip()
+    # БЕЗОПАСНО: Извлекаем тезисы штучно, гарантируя, что это чистые строки без кавычек
+    txt1 = str(theses[0]).replace(":", " ").strip()
+    txt2 = str(theses[1]).replace(":", " ").strip()
+    txt3 = str(theses[2]).replace(":", " ").strip()
 
     t1_wrapped = wrap_text(txt1)
     t2_wrapped = wrap_text(txt2)
     t3_wrapped = wrap_text(txt3)
 
-    # Безопасный текст для титульного слайда
+    # Безопасный текст для титульного слайда (без запрещенных кавычек шрифта)
     title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {display_time}"
 
     if sys.platform.startswith("win"):
@@ -95,7 +103,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = find_font()
     
-    # ИСПРАВЛЕНО: Полностью убрали опасные одинарные кавычки вокруг путей шрифтов для Linux!
+    # Пуленепробиваемая команда FFmpeg без опасных кавычек шрифта для Linux
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -109,7 +117,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         
         f"[1:v] drawtext=fontfile={font_path}:text='{t1_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v2];"
         
-        f"[2:v] drawtext=fontfile={font_path}:text='{t3_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v3];"
+        f"[2:v] drawtext=fontfile={font_path}:text='{t2_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v3];"
         
         "[v1][v2][v3] concat=n=3:v=1:a=0 [v_final]",
         
