@@ -7,7 +7,7 @@ def generate_voice(theses_list, output_audio="audio.mp3"):
     и озвучивает роботом gTTS прямо в файл audio.mp3.
     """
     print("[ИИ Голос] Старт генерации аудиоозвучки...")
-    
+
     # Жестко удаляем старый аудиофайл, если он остался от прошлого запроса
     if os.path.exists(output_audio):
         try:
@@ -23,7 +23,7 @@ def generate_voice(theses_list, output_audio="audio.mp3"):
         # Включаем русский голос от Google gTTS
         tts = gTTS(text=full_text, lang='ru', slow=False)
         tts.save(output_audio)
-        
+
         if os.path.exists(output_audio):
             print(f"[ИИ Голос] Успех! Аудиофайл создан: {os.path.abspath(output_audio)}")
             return output_audio

@@ -96,6 +96,7 @@
             border: 1px solid #e2ebe1;
         }
 
+        /* Видеоплеер */
         .video-container {
             width: 100%;
             background: #000;
@@ -115,6 +116,7 @@
             object-fit: cover;
         }
 
+        /* Тезисы ИИ */
         .thesis-list {
             list-style: none;
         }
@@ -136,6 +138,7 @@
             font-size: 18px;
         }
 
+        /* Источники */
         .source-tag {
             display: inline-block;
             background-color: #e8f0e7;
@@ -218,6 +221,7 @@
             <p style="color: #666;">ИИ «Хочу знать» успешно собрал и упаковал информацию.</p>
         </div>
 
+        <!-- Левая колонка: Видеоплеер -->
         <div class="card">
             <h2 style="margin-bottom: 15px; font-size: 20px; color: var(--primary-green);">Сгенерированный ролик</h2>
             <div class="video-container">
@@ -232,9 +236,11 @@
             </div>
         </div>
 
+        <!-- Правая колонка: Тезисы и Источники -->
         <div style="display: flex; flex-direction: column; gap: 30px;">
             <div class="card">
                 <h2 style="margin-bottom: 15px; font-size: 20px; color: var(--primary-green);">Ключевые тезисы</h2>
+                <!-- Сюда наш Python сервер подставит тезисы ИИ -->
                 <ul class="thesis-list">
                     <li class="thesis-item">Глубокий анализ данных выявил ключевые закономерности по теме.</li>
                     <li class="thesis-item">Технология сборки контента работает полностью автономно без WordPress плагинов.</li>
@@ -257,21 +263,21 @@
         Автономный ИИ-сервис • Чистый код 2026
     </footer>
 
-    <!-- ИСПРАВЛЕНО: Дописан и полностью восстановлен скрипт обработки заголовка и перезапуска видео -->
+    <!-- ИСПРАВЛЕНО: Полностью дописана и восстановлена логика работы страницы -->
     <script>
+        // Достаем текст запроса для заголовка
         const urlParams = new URLSearchParams(window.location.search);
         const queryText = urlParams.get('query');
-        
         if (queryText) {
-            // Подставляем реальный текст запроса в заголовок страницы
             document.getElementById('query-title').innerText = queryText;
         }
 
-        // Принудительно обновляем плеер, чтобы подтянуть свежее видео без кэша браузера
+        // Заставляем плеер сбросить старый кэш и принудительно загрузить свежий MP4 файл
         const player = document.getElementById('main-player');
         if (player) {
             player.load();
         }
     </script>
+
 </body>
 </html>

@@ -13,10 +13,10 @@ def generate_summary(query_text):
         user_query = " ".join([str(item) for item in query_text])
     else:
         user_query = str(query_text)
-        
+
     user_query = user_query.lower().strip()
     print(f"[SUMMARIZER] Обработка очищенного запроса: '{user_query}'")
-    
+
     # Демонстрационный возврат качественных тезисов, если API Gemini временно недоступен
     # Здесь в будущем будет твой полноценный вызов Google Gemini AI
     return [

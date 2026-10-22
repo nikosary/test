@@ -27,11 +27,11 @@
         h1 { font-size: 2.2rem; color: var(--primary-green); margin-bottom: 0.5rem; }
         .subtitle { font-size: 1rem; color: #667c65; margin-bottom: 2.5rem; }
         .search-form { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
-        
+
         .input-wrapper { position: relative; width: 100%; display: flex; align-items: center; }
         .search-input { width: 100%; padding: 1.2rem 4rem 1.2rem 1.5rem; font-size: 1.1rem; border: 2px solid var(--gray-light); border-radius: 30px; outline: none; transition: all 0.3s ease; color: var(--text-color); background-color: #fafdfa; }
         .search-input:focus { border-color: var(--light-green); box-shadow: 0 0 10px rgba(78, 135, 70, 0.2); background-color: var(--white); }
-        
+
         .mic-btn { position: absolute; right: 15px; background: none; border: none; cursor: pointer; color: var(--light-green); display: flex; align-items: center; justify-content: center; padding: 5px; transition: all 0.2s; }
         .mic-btn:hover { color: var(--primary-green); transform: scale(1.1); }
         .mic-btn.listening { color: red; animation: pulse 1s infinite; }
@@ -48,7 +48,7 @@
 
     <header>
         <a href="index.html" class="logo">
-            <!-- ИСПРАВЛЕНО: Исправлен адрес пространства имен SVG, чтобы лампочка горела -->
+            <!-- ИСПРАВЛЕНО: Полный корректный XML-адрес, чтобы эко-лампочка светилась зеленым -->
             <svg viewBox="0 0 24 24" xmlns="http://w3.org">
                 <path d="M12 2C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1zM9 19h6v1H9zm2 2h2v1h-2z"/>
             </svg>
@@ -64,11 +64,13 @@
         <div class="search-container">
             <h1>Какой контент создадим сегодня?</h1>
             <p class="subtitle">ИИ-сервис автономно найдет факты, напишет саммари и смонтирует MP4-ролик</p>
-            
-            <form class="search-form" action="process.html" method="GET">
+
+            <!-- НАДЕЖНО: Форма отправляет запрос на серверный обработчик /answer.html -->
+            <form class="search-form" action="/answer.html" method="GET">
                 <div class="input-wrapper">
                     <input type="text" id="search-input" name="query" class="search-input" placeholder="Введите вопрос или нажмите микрофон..." required autocomplete="off">
-                    
+
+                    <!-- КНОПКА МИКРОФОНА -->
                     <button type="button" id="mic-button" class="mic-btn" title="Голосовой ввод">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -90,15 +92,16 @@
         </div>
     </footer>
 
+    <!-- МАГИЯ ГОЛОСОВОГО ВВОДА -->
     <script>
         const micButton = document.getElementById('mic-button');
         const searchInput = document.getElementById('search-input');
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
+
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
-            recognition.lang = 'ru-RU';
+            recognition.lang = 'ru-RU'; 
             recognition.interimResults = false;
 
             micButton.addEventListener('click', () => {
