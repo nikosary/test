@@ -74,7 +74,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(last_generated_theses) < 3:
                 last_generated_theses.append("Чистый контент 2026")
 
-            # Шаг B. Запускаем голосовую озвучку (ОБЯЗАТЕЛЬНО ДЛЯ ТВОЕГО КИНЕМАТОГРАФА!)
+            # Шаг B. Запускаем голосовую озвучку
             if generate_voice:
                 print("[БЭКЕНД] 🎙️ Шаг 2: Запускаю озвучку текста роботом...")
                 try:
@@ -103,7 +103,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as ev:
                     print(f"[БЭКЕНД] ❌ Ошибка внутри твоего видеогенератора: {ev}")
 
-            # АВАРcardНЫЙ ЭКСПРЕСС-ПЛАН (Если твой генератор всё же выдал ошибку)
+            # АВАРcardНЫЙ ЭКСПРЕСС-ПЛАН (Если твой генератор выдал ошибку или пустой файл)
             if not video_ready:
                 print("[БЭКЕНД] ⚙️ Включаю автоматическую экспресс-сборку живого видео...")
                 try:
@@ -118,7 +118,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         ffmpeg_path, "-y",
                         "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=5:r=10",
                         "-vf", f"drawtext=text='{clean_text_screen}':fontcolor=white:fontsize=24:x=40:y=100",
-                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-c:v", "libx262", "-pix_fmt", "yuv420p",
                         "output.mp4"
                     ]
                     
@@ -129,8 +129,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as ffmpeg_err:
                     print(f"[БЭКЕНД] ❌ Не удалось запустить экспресс-монтаж: {ffmpeg_err}")
 
-            # Небольшая пауза в 1.5 секунды, чтобы операционная система успела сохранить файл на диск
-            time.sleep(1.5)
+            # ДАЕМ СИСТЕМЕ ВРЕМЯ ЗАПИСАТЬ ФАЙЛ НА ДИСК ПОЛНОСТЬЮ
+            time.sleep(2.0)
 
             # Финальный ответ фронтенду
             self.send_response(200)
@@ -138,7 +138,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             response_data = {
                 "status": "ready",
-                "video_url": "/output.mp4",
+                "video_url": f"/output.mp4?t={int(time.time())}", # Добавили метку времени против кэша браузера
                 "theses": last_generated_theses
             }
             self.wfile.write(json.dumps(response_data).encode())

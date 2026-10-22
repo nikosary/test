@@ -47,7 +47,9 @@
 <body>
 
     <div class="loader-card">
+        <!-- Твой любимый крутящийся кружочек на месте! -->
         <div class="spinner"></div>
+        <!-- Сюда красиво выводятся бегущие статусы нейросети -->
         <h2 id="ai-status">ИИ «Хочу знать» запускается...</h2>
         <p>Пожалуйста, подождите. Наша автономная нейросеть монтирует персональный MP4-ролик в облаке.</p>
     </div>
@@ -55,6 +57,7 @@
     <script>
         const statusElement = document.getElementById('ai-status');
         
+        // Твой список завораживающих фраз, которые видит человек
         const aiSteps = [
             "🤖 Устанавливаю мост с Google Gemini AI...",
             "🔍 Нейросеть собирает ключевые факты по теме...",
@@ -65,6 +68,7 @@
 
         let currentStep = 0;
 
+        // Плавная смена надписей каждые 2.5 секунды, чтобы показать работу ИИ
         function updateStatus() {
             if (currentStep < aiSteps.length) {
                 statusElement.innerText = aiSteps[currentStep];
@@ -75,30 +79,43 @@
         updateStatus();
         const statusInterval = setInterval(updateStatus, 2500);
 
+        // Получаем запрос пользователя из адресной строки
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
         
         if (query) {
+            // Фронтенд запускает генерацию на сервере Render
+            // и ждет, пока пройдет шоу статусов (не менее 12 секунд)
+            const startTime = Date.now();
+
             async function checkVideoStatus() {
                 try {
                     const response = await fetch(`/api/generate?query=${encodeURIComponent(query)}`);
                     const data = await response.json();
                     
                     if (data.status === 'ready' || data.success) {
-                        clearInterval(statusInterval);
-                        window.location.href = `/answer.html?video=${encodeURIComponent(data.video_url)}&query=${encodeURIComponent(query)}`;
-                    } else if (data.status === 'processing') {
-                        setTimeout(checkVideoStatus, 2000);
+                        const elapsedTime = Date.now() - startTime;
+                        const minimumShowTime = 12000; // Показываем классное шоу минимум 12 секунд
+
+                        if (elapsedTime >= minimumShowTime) {
+                            // Если шоу открутилось и файл готов — плавно переходим к плееру!
+                            clearInterval(statusInterval);
+                            window.location.href = `/answer.html?video=${encodeURIComponent(data.video_url)}&query=${encodeURIComponent(query)}`;
+                        } else {
+                            // Если сервер Render уже всё сделал, но 12 секунд шоу ещё не прошли — ждём окончания шоу
+                            setTimeout(checkVideoStatus, minimumShowTime - elapsedTime);
+                        }
                     } else {
-                        statusElement.innerText = "❌ Ошибка генерации видео.";
-                        clearInterval(statusInterval);
+                        // Если сервер ещё монтирует, проверяем снова через 2 секунды
+                        setTimeout(checkVideoStatus, 2000);
                     }
                 } catch (error) {
-                    console.error("Ошибка связи с сервером:", error);
+                    console.error("Ошибка связи с сервером Render:", error);
                     setTimeout(checkVideoStatus, 3000);
                 }
             }
 
+            // Запускаем процесс
             checkVideoStatus();
 
         } else {
