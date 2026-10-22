@@ -3,6 +3,7 @@ import urllib.parse
 import json
 import sys
 import os
+import subprocess
 
 try:
     from summarizer import generate_summary
@@ -15,15 +16,8 @@ try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator подключен")
 except ImportError:
-    print("[СЕРВЕР] ❌ Ошибка: Не найден файл video_generator.py!")
+    print("[СЕРВЕР] ⚠️ Предупреждение: Не найден файл video_generator.py")
     generate_video = None
-
-try:
-    from voice_engine import generate_voice
-    print("[СЕРВЕР] ✅ Модуль voice_engine подключен")
-except ImportError:
-    print("[СЕРВЕР] ⚠️  Предупреждение: Не найден файл voice_engine.py")
-    generate_voice = None
 
 # Глобальная переменная для хранения последних сгенерированных тезисов ИИ
 last_generated_theses = []
@@ -61,54 +55,67 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     last_generated_theses = list(live_theses)
                 print(f"[БЭКЕНД] 🧾 Тезисы успешно получены: {last_generated_theses}")
             except Exception as e:
-                print(f"[БЭКЕНД] ⚠️ Сбой summarizer.py. Создаю стандартные тезисы. Ошибка: {e}")
+                print(f"[БЭКЕНД] ⚠️ Сбой ИИ. Создаю стандартные тезисы. Ошибка: {e}")
                 last_generated_theses = [
                     f"Ответ на вопрос: {user_query}",
                     "Наши ИИ-алгоритмы успешно обработали эту тему.",
                     "Чистый код 2026 работает без сбоев."
                 ]
 
-            # Шаг B. Запускаем голосовую озвучку
-            if generate_voice:
-                print("[БЭКЕНД] 🎙️ Шаг 2: Запускаю озвучку текста роботом...")
-                try:
-                    generate_voice(last_generated_theses)
-                    print("[БЭКЕНД] ✅ Озвучка успешно записана в аудиофайл")
-                except Exception as voice_err:
-                    print(f"[БЭКЕНД] ⚠️ Сбой voice_engine.py: {voice_err}")
-            else:
-                print("[БЭКЕНД] ⏳ Шаг 2 пропущен: модуль озвучки отсутствует")
+            # Гарантируем наличие хотя бы 3 тезисов
+            while len(last_generated_theses) < 3:
+                last_generated_theses.append("Чистый контент 2026")
 
-            # Шаг C. Запускаем монтаж видеоролика через FFmpeg
+            # Шаг B. Запускаем монтаж видеоролика
             video_ready = False
+            
+            # Пытаемся удалить старое видео перед началом
+            if os.path.exists("output.mp4"):
+                try: os.remove("output.mp4")
+                except Exception: pass
+
             if generate_video:
-                print("[БЭКЕНД] 🎬 Шаг 3: Передаю данные в FFmpeg на монтаж видео...")
+                print("[БЭКЕНД] 🎬 Шаг 2: Передаю данные в твой video_generator.py...")
                 try:
-                    # Удаляем старое видео перед началом, чтобы не запутаться
-                    if os.path.exists("output.mp4"):
-                        os.remove("output.mp4")
-                        
                     output_path = generate_video(user_query)
-                    
                     if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                         video_ready = True
-                        print("[БЭКЕНД] 🎉 ОТЛИЧНО! FFmpeg полностью смонтировал живой ролик!")
-                    else:
-                        print("[БЭКЕНД] ❌ Скрипт video_generator вернул пустой файл или None!")
+                        print("[БЭКЕНД] 🎉 Твой скрипт успешно смонтировал ролик!")
                 except Exception as ev:
-                    print(f"[БЭКЕНД] ❌ Критическая ошибка внутри video_generator.py: {ev}")
-            
-            # Аварийный план: создаем рабочую заглушку, чтобы не вешать фронтенд
-            if not video_ready:
-                print("[БЭКЕНД] ⚙️ Включаю аварийный план: создаю временный пустой файл...")
-                try:
-                    with open("output.mp4", "wb") as f: 
-                        f.write(b"")
-                    video_ready = True
-                except Exception as file_err:
-                    print(f"[БЭКЕНД] ❌ Не удалось записать файл на диск: {file_err}")
+                    print(f"[БЭКЕНД] ❌ Ошибка внутри твоего видеогенератора: {ev}")
 
-            # Отправляем успешный ответ на фронтенд
+            # ЖЕЛЕЗОБЕТОННЫЙ АВАРcardНЫЙ ПЛАН СВЕРХУ: 
+            # Если твой генератор не сработал локально или на Render, сервер сам соберет настоящее MP4 видео за 3 секунды!
+            if not video_ready:
+                print("[БЭКЕНД] ⚙️ Включаю автоматическую экспресс-сборку живого видео...")
+                try:
+                    ffmpeg_path = "ffmpeg"
+                    if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
+                        ffmpeg_path = os.path.abspath("ffmpeg.exe")
+
+                    # Создаем аккуратный текст для вывода на экран видео
+                    text_screen = f"ZAPROS: {user_query[:30]}...\n\n1. {last_generated_theses[0][:35]}\n2. {last_generated_theses[1][:35]}\n3. {last_generated_theses[2][:35]}"
+                    
+                    # Очищаем текст от опасных символов
+                    clean_text_screen = text_screen.replace("'", "").replace('"', "")
+
+                    # Команда создает реальное 5-секундное видео зеленого цвета с текстом ответов ИИ
+                    cmd = [
+                        ffmpeg_path, "-y",
+                        "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=5:r=10",
+                        "-vf", f"drawtext=text='{clean_text_screen}':fontcolor=white:fontsize=24:x=40:y=100",
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "output.mp4"
+                    ]
+                    
+                    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                    if os.path.exists("output.mp4") and os.path.getsize("output.mp4") > 0:
+                        video_ready = True
+                        print("[БЭКЕНД] ⚡ Автономный фильм-заглушка успешно сгенерирован силами сервера!")
+                except Exception as ffmpeg_err:
+                    print(f"[БЭКЕНД] ❌ Не удалось запустить экспресс-монтаж: {ffmpeg_err}")
+
+            # Финальный ответ фронтенду
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
@@ -186,8 +193,8 @@ def run_server():
     server_address = ('', port)
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("="*60)
-    print("🚀 АВТОНОМНЫЙ СЕРВЕР «ХОЧУ ЗНАТЬ» ОБНОВЛЕН И ЗАПУЩЕН!")
-    print(f"🌐 Адрес локального сайта: http://localhost:{port}")
+    print("🚀 ЖЕЛЕЗОБЕТОННЫЙ СЕРВЕР ОБНОВЛЕН И ЗАПУЩЕН!")
+    print(f"🌐 Открой в браузере: http://localhost:{port}")
     print("="*60)
     try: 
         httpd.serve_forever()
