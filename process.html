@@ -40,7 +40,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        h2 { color: #2d5a27; margin-bottom: 10px; font-size: 22px; }
+        h2 { color: #2d5a27; margin-bottom: 15px; font-size: 22px; min-height: 30px; }
         p { color: #667c65; font-size: 15px; }
     </style>
 </head>
@@ -48,23 +48,47 @@
 
     <div class="loader-card">
         <div class="spinner"></div>
-        <h2>ИИ «Хочу знать» изучает тему...</h2>
-        <p>Обращаемся к Google Gemini AI для сбора ключевых тезисов. Пожалуйста, подождите, это займет всего пару секунд.</p>
+        <!-- Добавили id для динамической смены бегущих ИИ-статусов -->
+        <h2 id="ai-status">ИИ «Хочу знать» запускается...</h2>
+        <p>Пожалуйста, подождите. Наша автономная нейросеть монтирует персональный MP4-ролик в облаке.</p>
     </div>
 
     <script>
-        // Магия перенаправления: считываем поисковый запрос из адресной строки 
-        // и перенаправляем его на наш Python-обработчик answer.html
+        const statusElement = document.getElementById('ai-status');
+        
+        // Список завораживающих фраз, которые будут по очереди сменяться на экране
+        const aiSteps = [
+            "🤖 Устанавливаю мост с Google Gemini AI...",
+            "🔍 Нейросеть собирает ключевые факты по теме...",
+            "🎙️ Передаю тезисы ИИ-роботу на русскую озвучку...",
+            "🎬 Утилита FFmpeg запускает облачный видеомонтаж...",
+            "📦 Упаковываю готовый фильм в формат MP4..."
+        ];
+
+        let currentStep = 0;
+
+        // Функция плавной смены завораживающих надписей каждые 3 секунды
+        function updateStatus() {
+            if (currentStep < aiSteps.length) {
+                statusElement.innerText = aiSteps[currentStep];
+                currentStep++;
+            }
+        }
+
+        // Запускаем смену статусов сразу и повторяем каждые 3 секунды
+        updateStatus();
+        setInterval(updateStatus, 3000);
+
+        // Магия перенаправления: считываем поисковый запрос из адресной строки
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
         
         if (query) {
-            // Через 2 секунды красивой анимации перекидываем на answer.html
+            // Ровно через 15 секунд честного монтажа перекидываем пользователя на answer.html
             setTimeout(() => {
                 window.location.href = `/answer.html?query=${encodeURIComponent(query)}`;
             }, 15000);
         } else {
-            // Если запроса почему-то нет, возвращаем на главную
             window.location.href = 'index.html';
         }
     </script>

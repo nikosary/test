@@ -2,7 +2,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import sys
 import os
-import time  # Добавили для фиксации задержки монтажа
+import time
 
 # Подключаем наш ИИ-суммаризатор
 try:
@@ -46,10 +46,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         # Перехватываем переход на страницу результатов
         if parsed_url.path == "/answer.html":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            user_query = query_params.get('query', [''])
+            # ИСПРАВЛЕНО: Надежно извлекаем чистый текст запроса из списка
+            raw_query = query_params.get('query', [''])
+            user_query = raw_query[0] if isinstance(raw_query, list) else str(raw_query)
             
-            if user_query:
-                print(f"\n[СЕРВЕР] Запрос от пользователя: '{user_query}'")
+            if user_query.strip():
+                print(f"\n[СЕРВЕР] Чистый запрос от пользователя: '{user_query}'")
                 
                 # 1. Получаем тезисы от ИИ
                 print("[СЕРВЕР] Обращение к нейросети Google Gemini AI...")
@@ -68,17 +70,20 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 print("[СЕРВЕР] Запуск видеогенератора для создания output.mp4...")
                 if generate_video:
                     try:
+                        # Передаем строго отформатированный текст
                         generate_video(user_query) 
-                        print("[СЕРВЕР] Ожидание финальной записи видеофайла на диск...")
-                        # Даем серверу честные 4 секунды на то, чтобы FFmpeg успел закрыть файл
-                        time.sleep(12)
-                        print("[СЕРВЕР] Видео успешно сохранено и готово к отдаче!")
                     except Exception as ev:
-                        print(f"[Ошибка генерации видео]: {ev}")
+                        print(f"[Ошибка запуска видеогенератора]: {ev}")
                 else:
+                    # Если генератора нет, создаем пустую заглушку
                     with open("output.mp4", "wb") as f:
                         f.write(b"")
                 
+                # ИСПРАВЛЕНО: Даем серверу честные 12 секунд, чтобы Linux-FFmpeg на Render успел собрать фильм
+                print("[СЕРВЕР] Ожидание финальной сборки медиапотоков на диске хостинга...")
+                time.sleep(12)
+                print("[СЕРВЕР] Сборка завершена. Формируем страницу ответа.")
+
                 # 4. Читаем оригинальный файл answer.html и подставляем тезисы
                 try:
                     with open("answer.html", "r", encoding="utf-8") as f:
@@ -119,7 +124,7 @@ def run_server():
     
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("==================================================")
-    print("🚀 ИИ-МОСТ ОБНОВЛЕН И ПОДСТРОЕН ПОД РЕНДЕР!")
+    print("🚀 ИИ-МОСТ ОБНОВЛЕН И НАСТРОЕН ДЛЯ СТАБИЛЬНОЙ РАБОТЫ!")
     print(f"Сервер запущен на порту: {port}")
     print("==================================================")
     
