@@ -2,9 +2,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import sys
 import os
-import time
 
-# Подключаем наш ИИ-суммаризатор
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer подключен")
@@ -12,7 +10,6 @@ except ImportError:
     print("[СЕРВЕР] ❌ Ошибка: Не найден файл summarizer.py!")
     sys.exit(1)
 
-# Подключаем наш видеогенератор
 try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator подключен")
@@ -20,7 +17,6 @@ except ImportError:
     print("[СЕРВЕР] ❌ Ошибка: Не найден файл video_generator.py!")
     generate_video = None
 
-# Подключаем наш модуль авто-озвучки
 try:
     from voice_engine import generate_voice
     print("[СЕРВЕР] ✅ Модуль voice_engine подключен")
@@ -32,7 +28,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # Если браузер запрашивает само видео output.mp4
         if parsed_url.path == "/output.mp4":
             if os.path.exists("output.mp4"):
                 try:
@@ -42,69 +37,48 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     self.end_headers()
                     with open("output.mp4", "rb") as video_file:
                         self.wfile.write(video_file.read())
-                    print(f"[СЕРВЕР] ✅ Видео output.mp4 успешно отдано браузеру")
                     return
                 except Exception as ev_err:
-                    print(f"[СЕРВЕР] ❌ Ошибка отдачи videoфайла: {ev_err}")
+                    print(f"[СЕРВЕР] ❌ Ошибка отдачи видео: {ev_err}")
             else:
-                print(f"[СЕРВЕР] ❌ Файл output.mp4 не найден на диске сервера!")
+                print(f"[СЕРВЕР] ❌ Файл output.mp4 не найден на диске!")
 
-        # Перехватываем переход на страницу результатов
         if parsed_url.path == "/answer.html":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            # ИСПРАВЛЕНО: Надежно извлекаем чистый текст запроса из списка (массива)
-            if raw_query and raw_query[0].strip():
+            # СТРОГО: Извлекаем чистый текст из списка, чтобы не сломать FFmpeg
+            if raw_query:
                 user_query = raw_query[0].strip()
                 
                 print(f"\n{'='*60}")
                 print(f"[СЕРВЕР] 📨 НОВЫЙ ЗАПРОС ОТ ПОЛЬЗОВАТЕЛЯ: '{user_query}'")
                 print(f"{'='*60}")
 
-                # 1. Получаем тезисы от ИИ
-                print("[СЕРВЕР] 🔍 Обращение к нейросети Google Gemini AI...")
+                # 1. Тезисы ИИ
                 try:
                     live_theses = generate_summary(user_query)
-                    print(f"[СЕРВЕР] ✅ Получено тезисов: {len(live_theses)}")
-                    for i, thesis in enumerate(live_theses, 1):
-                        print(f"   Тезис {i}: {thesis}")
                 except Exception as e:
-                    print(f"[СЕРВЕР] ❌ Ошибка при получении тезисов: {e}")
-                    live_theses = ["Ошибка при получении ответа", "Попробуйте другой запрос", "Техническая проблема"]
+                    print(f"[СЕРВЕР] ❌ Ошибка ИИ: {e}")
+                    live_theses = ["Ошибка получения тезисов", "Попробуйте позже", "Технический сбой"]
 
-                # 2. Запускаем авто-озвучку
+                # 2. Озвучка роботом
                 if generate_voice:
                     try:
-                        print("[СЕРВЕР] 🎤 Отправка тезисов ИИ на озвучку роботом...")
                         generate_voice(live_theses)
-                        print("[СЕРВЕР] ✅ Озвучка завершена")
                     except Exception as voice_err:
-                        print(f"[СЕРВЕР] ❌ Ошибка в блоке авто-озвучки: {voice_err}")
+                        print(f"[СЕРВЕР] ❌ Ошибка авто-озвучки: {voice_err}")
 
-                # 3. Запускаем генерацию видеоролика
-                print("[СЕРВЕР] 🎬 Запуск видеогенератора для создания output.mp4...")
+                # 3. Видеомонтаж (FFmpeg запустится в фоновом режиме, пока крутится процесс загрузки)
                 if generate_video:
                     try:
-                        # Передаем строго чистый отформатированный текст (строку)
-                        result = generate_video(user_query)
-                        if result:
-                            print(f"[СЕРВЕР] ✅ Видео успешно создано: {result}")
-                        else:
-                            print("[СЕРВЕР] ❌ Видеогенератор вернул None (ошибка генерации)")
+                        generate_video(user_query)
                     except Exception as ev:
                         print(f"[СЕРВЕР] ❌ Ошибка генерации видео: {ev}")
                 else:
-                    print("[СЕРВЕР] ⚠️  Видеогенератор недоступен, создаю пустой файл...")
-                    with open("output.mp4", "wb") as f:
-                        f.write(b"")
+                    with open("output.mp4", "wb") as f: f.write(b"")
 
-                # ИСПРАВЛЕНО: Даем серверу Render честные 12 секунд, чтобы FFmpeg успел смонтировать и закрыть файл
-                print("[СЕРВЕР] ⏳ Ожидание завершения записи файла на диск хостинга...")
-                
-                print("[СЕРВЕР] ✅ Видео готово к отдаче!")
-
-                # 4. Читаем оригинальный файл answer.html и подставляем тезисы
+                # 4. Подмена контента на странице ответа
                 try:
                     with open("answer.html", "r", encoding="utf-8") as f:
                         html_content = f.read()
@@ -127,33 +101,26 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     else:
                         updated_html = html_content.replace(start_marker, f'{start_marker}{thesis_blocks}')
 
-                    # Отправляем обновленную страницу в браузер
                     self.send_response(200)
                     self.send_header("Content-type", "text/html; charset=utf-8")
                     self.end_headers()
                     self.wfile.write(updated_html.encode("utf-8"))
-                    print(f"[СЕРВЕР] ✅ Страница answer.html отправлена пользователю")
                     return
                 except Exception as e:
-                    print(f"[СЕРВЕР] ❌ Ошибка подмены контента: {e}")
+                    print(f"[СЕРВЕР] ❌ Ошибка верстки: {e}")
 
         return super().do_GET()
 
 def run_server():
     port = int(os.environ.get("PORT", 8000))
     server_address = ('', port)
-
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("="*60)
-    print("🚀 ИИ-МОСТ ОБНОВЛЕН И ПОДСТРОЕН ПОД РЕНДЕР!")
+    print("🚀 ИИ-МОСТ ПЕРЕНЕСЕН В ПАПКУ TEST И ГОТОВ К СБОРКЕ!")
     print(f"🌐 Сервер запущен на порту: {port}")
     print("="*60)
-
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[СЕРВЕР] Сервер остановлен.")
-        httpd.server_close()
+    try: httpd.serve_forever()
+    except KeyboardInterrupt: httpd.server_close()
 
 if __name__ == "__main__":
     run_server()

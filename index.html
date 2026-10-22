@@ -48,7 +48,6 @@
 
     <header>
         <a href="index.html" class="logo">
-            <!-- ИСПРАВЛЕНО: Полный корректный XML-адрес, чтобы эко-лампочка светилась зеленым -->
             <svg viewBox="0 0 24 24" xmlns="http://w3.org">
                 <path d="M12 2C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1zM9 19h6v1H9zm2 2h2v1h-2z"/>
             </svg>
@@ -64,13 +63,12 @@
         <div class="search-container">
             <h1>Какой контент создадим сегодня?</h1>
             <p class="subtitle">ИИ-сервис автономно найдет факты, напишет саммари и смонтирует MP4-ролик</p>
-            <!-- НАДЁЖНО: Форма отправляет сначала на страницу ожидания -->
-            <form class="search-form" action="process.html" method="GET">
 
+            <!-- НАДЕЖНО: Форма отправляет запрос сначала на страницу ожидания process.html -->
+            <form class="search-form" action="process.html" method="GET">
                 <div class="input-wrapper">
                     <input type="text" id="search-input" name="query" class="search-input" placeholder="Введите вопрос или нажмите микрофон..." required autocomplete="off">
 
-                    <!-- КНОПКА МИКРОФОНА -->
                     <button type="button" id="mic-button" class="mic-btn" title="Голосовой ввод">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -92,7 +90,6 @@
         </div>
     </footer>
 
-    <!-- МАГИЯ ГОЛОСОВОГО ВВОДА -->
     <script>
         const micButton = document.getElementById('mic-button');
         const searchInput = document.getElementById('search-input');
