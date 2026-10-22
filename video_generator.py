@@ -3,11 +3,8 @@ import os
 import sys
 from datetime import datetime
 
-def wrap_text(text, max_chars=40):
-    """
-    Автоматически разбивает длинный русский текст на несколько строк,
-    чтобы он красиво ложился по центру экрана.
-    """
+def wrap_text(text, max_chars=35):
+    """Разбивает длинный текст на аккуратные строки для экрана."""
     words = text.split()
     lines = []
     current_line = []
@@ -25,37 +22,28 @@ def wrap_text(text, max_chars=40):
     return "\\\n".join(lines)
 
 def find_font():
-    """
-    Умный поиск шрифта Arial: проверяет локальную папку проекта,
-    а если его там нет — ищет в системных папках Windows и Linux.
-    """
+    """Ищет шрифт Arial в системе Windows или Linux."""
     if os.path.exists("arial.ttf"):
         return "arial.ttf"
-    
-    # Пути в зависимости от операционной системы
     if sys.platform.startswith("win"):
         win_font = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "arial.ttf")
-        if os.path.exists(win_font):
-            return win_font.replace("\\", "/")
+        if os.path.exists(win_font): return win_font.replace("\\", "/")
     else:
-        # Стандартные пути для Linux-серверов (включая Render)
         linux_fonts = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
         ]
         for font in linux_fonts:
-            if os.path.exists(font):
-                return font
+            if os.path.exists(font): return font
     return "arial.ttf"
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск пуленепробиваемого монтажа для Linux...")
+    print("[ИИ Видео] Запуск синхронного монтажа с крупными часами...")
     
-    # Автоматически считываем текущую РЕАЛЬНУЮ дату и время запроса
+    # Считываем реальное время и дату
     now = datetime.now()
     current_date = now.strftime("%d.%m.%Y")
-    current_time = now.strftime("%H-%M-%S")
+    current_time = now.strftime("%H:%M:%S") # Возвращаем двоеточия, теперь они безопасны
     
     try:
         from summarizer import generate_summary
@@ -63,61 +51,65 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     except Exception:
         theses = ["Первый тезис от ИИ", "Второй тезис от ИИ", "Третий тезис от ИИ"]
 
-    # Гарантируем наличие ровно 3 элементов в списке
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
-    # Вытаскиваем тезисы строго по номерам из списка и очищаем как текст
-    t1_raw = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
-    t2_raw = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
-    t3_raw = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
-
-    # Очищаем тему вопроса пользователя
-    clean_query = query_text.replace("'", "").replace('"', '').replace(':', '').strip()
-    if len(clean_query) > 30:
-        clean_query = clean_query[:27] + "..."
-
-    # Безопасный текст для первого титульного слайда (без запрещенных палочек)
-    title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {current_time}"
+    # Форматируем тексты (убираем опасные для FFmpeg кавычки)
+    clean_query = query_text.replace("'", "").replace('"', '').replace(':', ' ').strip()
+    if len(clean_query) > 40: clean_query = clean_query[:37] + "..."
     
-    # Накладываем автоперенос строк на каждый тезис в отдельности
-    t1_wrapped = wrap_text(t1_raw)
-    t2_wrapped = wrap_text(t2_raw)
-    t3_wrapped = wrap_text(t3_raw)
+    q_wrapped = wrap_text(clean_query, max_chars=30)
+    
+    # СИНХРОНИЗАЦИЯ: Узнаем точную длину аудиофайла, чтобы разбить слайды поровну
+    audio_duration = 15 # Запасной вариант по умолчанию
+    if os.path.exists(audio_file):
+        try:
+            # Запрашиваем длину звука через утилиту ffprobe
+            cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {audio_file}"
+            audio_duration = float(subprocess.check_output(cmd, shell=True).decode().strip())
+        except Exception:
+            pass
 
-    # Настраиваем путь к FFmpeg
+    # Делим общее время звука на 3 равных отрезка для каждого слайда
+    slide_time = round(audio_duration / 3, 1)
+    print(f"[ИИ Видео] Длина звука: {audio_duration} сек. Каждый слайд будет гореть по {slide_time} сек.")
+
+    # Форматируем тексты для слайдов
+    t1_wrapped = wrap_text(str(theses[0]).replace("'", "").replace('"', ''))
+    t2_wrapped = wrap_text(str(theses[1]).replace("'", "").replace('"', ''))
+    t3_wrapped = wrap_text(str(theses[2]).replace("'", "").replace('"', ''))
+
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
-        if not os.path.exists(ffmpeg_path): 
-            print("[Предупреждение] Файл ffmpeg.exe не найден в папке, пробуем системный.")
-            ffmpeg_path = "ffmpeg"
     else:
         ffmpeg_path = "ffmpeg"
 
-    # Удаляем старое видео перед сборкой
     if os.path.exists(output_video):
         try: os.remove(output_video)
         except Exception: pass
 
-    # Находим рабочий шрифт в системе
     font_path = find_font()
-    print(f"[ИИ Видео] Используем шрифт для титров: {font_path}")
     
-    # Сбалансированная команда FFmpeg для стабильной работы на Render
+    # Новая, продвинутая команда FFmpeg с крупным раздельным выводом текста
     command = [
         ffmpeg_path, "-y",
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1e3d1a:s=854x480:r=10", 
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#1a2a3d:s=854x480:r=10", 
-        "-f", "lavfi", "-t", "7", "-i", "color=c=#2d2d2d:s=854x480:r=10", 
+        "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", # 1. Зеленый
+        "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", # 2. Синий
+        "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", # 3. Серый
         "-i", audio_file,
         
         "-filter_complex", 
-        f"[0:v] drawtext=fontfile='{font_path}':text='{title_text}':fontcolor=white:fontsize=18:"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black [v1];"
+        # Слайд 1: Сверху вопрос (fontsize=24), а по центру крупно ДАТА и ВРЕМЯ (fontsize=32)
+        f"[0:v] drawtext=fontfile='{font_path}':text='{q_wrapped}':fontcolor=white:fontsize=24:"
+        f"x=(w-text_w)/2:y=60:borderw=3:bordercolor=black [v1_init];"
+        f"[v1_init] drawtext=fontfile='{font_path}':text='{current_date}  {current_time}':fontcolor=yellow:fontsize=32:"
+        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v1];"
         
+        # Слайд 2: Первый тезис ИИ
         f"[1:v] drawtext=fontfile='{font_path}':text='{t1_wrapped}':fontcolor=white:fontsize=22:"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v2];"
+        f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=6 [v2];"
         
+        # Слайд 3: Второй тезис ИИ
         f"[2:v] drawtext=fontfile='{font_path}':text='{t2_wrapped}':fontcolor=white:fontsize=22:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black:line_spacing=5 [v3];"
         
@@ -134,14 +126,11 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     ]
 
     try:
-        print("[ИИ Видео] FFmpeg запускает компиляцию слайдов и аудио...")
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         if os.path.exists(output_video):
-            print(f"[ИИ Видео] Успех! Сверхнадежный фильм успешно смонтирован!")
+            print(f"[ИИ Видео] Сверхточный фильм с крупными часами успешно смонтирован!")
             return output_video
-        else: 
-            print("[Ошибка] Файл output.mp4 не появился на диске.")
-            return None
+        else: return None
     except Exception as e:
         print(f"[Ошибка монтажа]: {e}")
         return None
