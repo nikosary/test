@@ -53,7 +53,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         from summarizer import generate_summary
         raw_theses = generate_summary(query_text)
         
-        # СТРОГО: Если ИИ вернул строку, аккуратно бьем её на массив по точкам или переносам
+        # Если ИИ вернул строку, аккуратно бьем её на массив по точкам
         if isinstance(raw_theses, str):
             theses = [t.strip() for t in raw_theses.split(".") if t.strip()]
         else:
@@ -79,10 +79,10 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     slide_time = round(audio_duration / 3, 1)
     print(f"[ИИ Видео] Расчетная длина звука: {audio_duration} сек. Слайд: {slide_time} сек.")
 
-    # БЕЗОПАСНО: Извлекаем тезисы штучно, гарантируя, что это чистые строки без кавычек
-    txt1 = str(theses[0]).replace(":", " ").strip()
-    txt2 = str(theses[1]).replace(":", " ").strip()
-    txt3 = str(theses[2]).replace(":", " ").strip()
+    # ИСПРАВЛЕНО СТРОГО ПО ИНДЕКСАМ 0, 1, 2 ПОД КОНТРОЛЕМ ДИРЕКТОРА:
+    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', ' ').strip()
+    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', ' ').strip()
+    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', ' ').strip()
 
     t1_wrapped = wrap_text(txt1)
     t2_wrapped = wrap_text(txt2)
