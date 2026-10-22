@@ -64,9 +64,9 @@
         <div class="search-container">
             <h1>Какой контент создадим сегодня?</h1>
             <p class="subtitle">ИИ-сервис автономно найдет факты, напишет саммари и смонтирует MP4-ролик</p>
+            <!-- НАДЁЖНО: Форма отправляет сначала на страницу ожидания -->
+            <form class="search-form" action="process.html" method="GET">
 
-            <!-- НАДЕЖНО: Форма отправляет запрос на серверный обработчик /answer.html -->
-            <form class="search-form" action="/answer.html" method="GET">
                 <div class="input-wrapper">
                     <input type="text" id="search-input" name="query" class="search-input" placeholder="Введите вопрос или нажмите микрофон..." required autocomplete="off">
 
