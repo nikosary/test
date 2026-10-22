@@ -15,10 +15,19 @@ except ImportError:
     sys.exit(1)
 
 try:
+    from video_generator import generate_video
+    print("[СЕРВЕР] ✅ Модуль video_generator подключен")
+except ImportError:
+    generate_video = None
+
+try:
     from voice_engine import generate_voice
     print("[СЕРВЕР] ✅ Модуль voice_engine подключен")
 except ImportError:
     generate_voice = None
+
+# Глобальная переменная для хранения последних сгенерированных тезисов ИИ
+last_generated_theses = []
 
 def wrap_text_clean(text, max_chars=35):
     """Аккуратно разбивает длинный текст на строки, чтобы он был читаемым на экране."""
@@ -87,7 +96,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 theses.append("Чистый контент 2026")
 
             # Сохраняем для страницы ответа
-            global last_generated_theses
             last_generated_theses = theses
 
             # Шаг B. Создаем аудио-озвучку audio.mp3 через наш voice_engine
@@ -116,43 +124,31 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
 
-            # Рассчитываем время: делаем слайды подлиннее, чтобы человек успевал читать
-            slide_time = 4.0  # Каждая картинка показывается по 4 секунды
+            # Рассчитываем время: каждая картинка показывается по 4 секунды
+            slide_time = 4.0  
             
             print("[БЭКЕНД] 🎬 FFmpeg собирает фильм с титрами, часами и звуком...")
             try:
-                # Команда создает 4 слайда (Титульный с датой/временем + 3 слайда с тезисами) и накладывает аудио
                 cmd = [
                     ffmpeg_path, "-y",
-                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", # Синий титульный
-                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d5a27:s=854x480:r=10", # Зеленый слайд 1
-                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", # Зеленый слайд 2
-                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", # Серый слайд 3
+                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", 
+                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d5a27:s=854x480:r=10", 
+                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
+                    "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
                 ]
                 
-                # Добавляем аудиодорожку, если файл audio.mp3 успешно создался на диске Render
                 if os.path.exists(audio_file) and os.path.getsize(audio_file) > 0:
                     cmd += ["-i", audio_file]
                     has_audio = True
                 else:
                     has_audio = False
 
-                # Фильтры для вывода красивого крупного и читаемого текста по центру экрана
                 filter_string = (
-                    # 1 экран: Твой вопрос + Точная дата и время секунда в секунду!
                     f"[0:v] drawtext=text='{q_wrapped}':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=100:borderw=2:bordercolor=black [v1_title];"
                     f"[v1_title] drawtext=text='DATA: {current_date}  VREMYA: {display_time}':fontcolor=yellow:fontsize=28:x=(w-text_w)/2:y=260:borderw=3:bordercolor=black [v1];"
-                    
-                    # 2 экран: Тезис 1
                     f"[1:v] drawtext=text='{t1_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v2];"
-                    
-                    # 3 экран: Тезис 2
                     f"[2:v] drawtext=text='{t2_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v3];"
-                    
-                    # 4 экран: Тезис 3
                     f"[3:v] drawtext=text='{t3_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v4];"
-                    
-                    # Склеиваем все 4 экрана вместе в один поток
                     "[v1][v2][v3][v4] concat=n=4:v=1:a=0 [v_final]"
                 )
 
@@ -161,22 +157,23 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 if has_audio:
                     cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 
-                cmd += ["-c:v", "libx262", "-pix_fmt", "yuv420p", "output.mp4"]
+                cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "output.mp4"]
                 
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[БЭКЕНД] 🎉 ПОЛНЫЙ ФИЛЬМ С ЧАСАМИ И ТИТРАМИ УСПЕШНО СМОНТИРОВАН!")
+                video_ready = True
             except Exception as ffmpeg_err:
                 print(f"[БЭКЕНД] ❌ Ошибка FFmpeg монтажа: {ffmpeg_err}")
-                # Аварийная супер-заглушка на случай сбоя видеокарты сервера
+                video_ready = False
+
+            if not video_ready:
                 try:
                     cmd_alt = [ffmpeg_path, "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", "output.mp4"]
                     subprocess.run(cmd_alt, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 except Exception: pass
 
-            # Даем системе время зафиксировать файл на диске Render
             time.sleep(2.5)
 
-            # Отправляем успешный ответ фронтенду
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
@@ -217,3 +214,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         if parsed_url.path == "/answer.html":
             try:
                 with open("answer.html", "r", encoding="utf-8") as f:
+                    html_content = f.read()
+
+                theses_to_show = last_generated_theses if last_generated_theses else ["Данные успешно обработаны", "Видео готово к просмотру", "Чистый код 2026"]
+                thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
+
+                start_marker = '<ul class="thesis-list">'
+                end_marker = '</ul>'
+
+                start_idx = html_content.find(start_marker)
+                end_idx = html_content.find(end_marker)
+
+                if start_idx != -1 and end_idx != -1:
+                    end_idx += len(end_marker)
