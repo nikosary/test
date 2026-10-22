@@ -211,16 +211,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_error(404, "File Not Found")
                 return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА (ПУЛЕНЕПРОБИВАЕМЫЙ ВАРИАНТ)
+        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
-            # Берем текущие тезисы или делаем аккуратную замену по умолчанию
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
             
-            # Читаем шаблон страницы ответа
             try:
                 with open("answer.html", "r", encoding="utf-8") as f:
                     html_content = f.read()
             except Exception:
-                html_content = "<html><body><ul><ul class='thesis-list'></ul></ul></body></html>"
+                html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
 
+            target_marker = '<ul class="thesis-list">'
+            replacement = f'<ul class="thesis-list">{thesis_blocks}'
