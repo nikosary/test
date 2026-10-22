@@ -1,4 +1,4 @@
-from http.http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import json
 import sys
@@ -95,7 +95,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(theses) < 3:
                 theses.append("Чистый контент 2026")
 
-            # Сохраняем для страницы ответа
+            # Сохраняем в глобальную переменную для страницы ответа
             last_generated_theses = theses
 
             # Шаг B. Создаем аудио-озвучку audio.mp3 через наш voice_engine
@@ -128,6 +128,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             slide_time = 4.0  
             
             print("[БЭКЕНД] 🎬 FFmpeg собирает фильм с титрами, часами и звуком...")
+            video_ready = False
             try:
                 cmd = [
                     ffmpeg_path, "-y",
@@ -210,20 +211,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_error(404, "File Not Found")
                 return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
+        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА (ПУЛЕНЕПРОБИВАЕМЫЙ ВАРИАНТ)
         if parsed_url.path == "/answer.html":
+            # Берем текущие тезисы или делаем аккуратную замену по умолчанию
+            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
+            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
+            
+            # Читаем шаблон страницы ответа
             try:
                 with open("answer.html", "r", encoding="utf-8") as f:
                     html_content = f.read()
+            except Exception:
+                html_content = "<html><body><ul><ul class='thesis-list'></ul></ul></body></html>"
 
-                theses_to_show = last_generated_theses if last_generated_theses else ["Данные успешно обработаны", "Видео готово к просмотру", "Чистый код 2026"]
-                thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
-
-                start_marker = '<ul class="thesis-list">'
-                end_marker = '</ul>'
-
-                start_idx = html_content.find(start_marker)
-                end_idx = html_content.find(end_marker)
-
-                if start_idx != -1 and end_idx != -1:
-                    end_idx += len(end_marker)
