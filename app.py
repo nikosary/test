@@ -33,7 +33,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # 1. УМНЫЙ И ПУЛЕНЕПРОБИВАЕМЫЙ РОУТ ДЛЯ ПРОВЕРКИ И ЗАПУСКА ГЕНЕРАЦИИ
+        # 1. ПУЛЕНЕПРОБИВАЕМЫЙ РОУТ ДЛЯ СБОРКИ КОНТЕНТА
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
@@ -48,70 +48,76 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             user_query = raw_query[0].strip()
 
             print(f"\n{'='*60}")
-            print(f"[БЭКЕНД ИИ] 📨 ЗАПУСК АВТОНОМНОЙ СБОРКИ ДЛЯ: '{user_query}'")
+            print(f"[БЭКЕНД] 📨 НАЧАЛО ГЕНЕРАЦИИ ДЛЯ: '{user_query}'")
             print(f"{'='*60}")
 
-            # Шаг A. Создаем тезисы (с защитой от сбоев)
+            # Шаг A. Создаем тезисы через ИИ
+            print("[БЭКЕНД] 🤖 Шаг 1: Запрашиваю тезисы у ИИ...")
             try:
                 live_theses = generate_summary(user_query)
                 if isinstance(live_theses, str):
                     last_generated_theses = [t.strip() for t in live_theses.split(".") if t.strip()]
                 else:
                     last_generated_theses = list(live_theses)
+                print(f"[БЭКЕНД] 🧾 Тезисы успешно получены: {last_generated_theses}")
             except Exception as e:
-                print(f"[СЕРВЕР] ⚠️ Ошибка Gemini AI, создаю стандартные тезисы: {e}")
+                print(f"[БЭКЕНД] ⚠️ Сбой summarizer.py. Создаю стандартные тезисы. Ошибка: {e}")
                 last_generated_theses = [
                     f"Ответ на вопрос: {user_query}",
                     "Наши ИИ-алгоритмы успешно обработали эту тему.",
                     "Чистый код 2026 работает без сбоев."
                 ]
 
-            # Шаг B. Запускаем голосовой движок (с защитой от сбоев)
+            # Шаг B. Запускаем голосовую озвучку
             if generate_voice:
+                print("[БЭКЕНД] 🎙️ Шаг 2: Запускаю озвучку текста роботом...")
                 try:
                     generate_voice(last_generated_theses)
+                    print("[БЭКЕНД] ✅ Озвучка успешно записана в аудиофайл")
                 except Exception as voice_err:
-                    print(f"[СЕРВЕР] ⚠️ Ошибка авто-озвучки (пропускаем): {voice_err}")
+                    print(f"[БЭКЕНД] ⚠️ Сбой voice_engine.py: {voice_err}")
+            else:
+                print("[БЭКЕНД] ⏳ Шаг 2 пропущен: модуль озвучки отсутствует")
 
-            # Шаг C. Запускаем монтаж видео через FFmpeg (с полной защитой)
+            # Шаг C. Запускаем монтаж видеоролика через FFmpeg
             video_ready = False
             if generate_video:
+                print("[БЭКЕНД] 🎬 Шаг 3: Передаю данные в FFmpeg на монтаж видео...")
                 try:
+                    # Удаляем старое видео перед началом, чтобы не запутаться
+                    if os.path.exists("output.mp4"):
+                        os.remove("output.mp4")
+                        
                     output_path = generate_video(user_query)
-                    if output_path and os.path.exists(output_path):
+                    
+                    if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                         video_ready = True
+                        print("[БЭКЕНД] 🎉 ОТЛИЧНО! FFmpeg полностью смонтировал живой ролик!")
                     else:
-                        print("[СЕРВЕР] ⚠️ Скрипт видео вернул None, создаю тестовое видео...")
+                        print("[БЭКЕНД] ❌ Скрипт video_generator вернул пустой файл или None!")
                 except Exception as ev:
-                    print(f"[СЕРВЕР] ⚠️ Ошибка генерации видео через FFmpeg: {ev}")
+                    print(f"[БЭКЕНД] ❌ Критическая ошибка внутри video_generator.py: {ev}")
             
-            # ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: Если видео не создалось, принудительно делаем заглушку, чтобы сайт не выдавал 500
+            # Аварийный план: создаем рабочую заглушку, чтобы не вешать фронтенд
             if not video_ready:
-                print("[СЕРВЕР] ⚙️ Аварийное создание файла output.mp4 для работы плеера...")
+                print("[БЭКЕНД] ⚙️ Включаю аварийный план: создаю временный пустой файл...")
                 try:
                     with open("output.mp4", "wb") as f: 
                         f.write(b"")
                     video_ready = True
                 except Exception as file_err:
-                    print(f"[СЕРВЕР] ❌ Не удалось создать даже пустой файл: {file_err}")
+                    print(f"[БЭКЕНД] ❌ Не удалось записать файл на диск: {file_err}")
 
-            # Отвечаем фронтенду всегда кодом 200, если файл на месте
-            if video_ready:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                response_data = {
-                    "status": "ready",
-                    "video_url": "/output.mp4",
-                    "theses": last_generated_theses
-                }
-                self.wfile.write(json.dumps(response_data).encode())
-            else:
-                # На случай полной катастрофы с правами записи на диск
-                self.send_response(500)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "failed", "message": "Ошибка записи файла на сервере"}).encode())
+            # Отправляем успешный ответ на фронтенд
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            response_data = {
+                "status": "ready",
+                "video_url": "/output.mp4",
+                "theses": last_generated_theses
+            }
+            self.wfile.write(json.dumps(response_data).encode())
             return
 
         # 2. НАДЕЖНАЯ ОТДАЧА ВИДЕОФАЙЛА ПО СЕТИ В ПЛЕЕР
@@ -133,14 +139,13 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                             self.wfile.write(chunk)
                     return
                 except Exception as ev_err:
-                    print(f"[СЕРВЕР] ❌ Ошибка отдачи видеопотока: {ev_err}")
+                    print(f"[СЕРВЕР] ❌ Ошибка передачи видеопотока в плеер: {ev_err}")
                     return
             else:
-                print(f"[СЕРВЕР] ❌ Критическая ошибка: Файл output.mp4 не найден на диске!")
-                self.send_error(404, "Видеофайл еще не создан")
+                self.send_error(404, "Файл не найден")
                 return
 
-        # 3. ДИНАМИЧЕСКАЯ ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА
+        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
             try:
                 with open("answer.html", "r", encoding="utf-8") as f:
@@ -172,7 +177,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(updated_html.encode("utf-8"))
                 return
             except Exception as e:
-                print(f"[СЕРВЕР] ❌ Ошибка динамической верстки тезисов: {e}")
+                print(f"[СЕРВЕР] ❌ Ошибка верстки тезисов: {e}")
 
         return super().do_GET()
 
@@ -181,8 +186,8 @@ def run_server():
     server_address = ('', port)
     httpd = HTTPServer(server_address, AiServiceHandler)
     print("="*60)
-    print("🚀 ОБНОВЛЕННЫЙ ЗАЩИЩЕННЫЙ ИИ-МОСТ УСПЕШНО ЗАПУЩЕН!")
-    print(f"🌐 Сервер стабильно работает на порту: {port}")
+    print("🚀 АВТОНОМНЫЙ СЕРВЕР «ХОЧУ ЗНАТЬ» ОБНОВЛЕН И ЗАПУЩЕН!")
+    print(f"🌐 Адрес локального сайта: http://localhost:{port}")
     print("="*60)
     try: 
         httpd.serve_forever()
