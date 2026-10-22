@@ -5,6 +5,8 @@ from datetime import datetime
 
 def wrap_text(text, max_chars=35):
     """Разбивает длинный текст на аккуратные строки для экрана видео."""
+    if not text:
+        return ""
     words = text.split()
     lines = []
     current_line = []
@@ -38,12 +40,13 @@ def find_font():
     return "arial.ttf"
 
 def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"):
-    print("[ИИ Видео] Запуск автономного монтажа с математическим расчетом таймингов...")
+    print("[ИИ Видео] Запуск автономного монтажа с поштучным выбором тезисов...")
     
     # Считываем реальное время и дату
     now = datetime.now()
     current_date = now.strftime("%d.%m.%Y")
-    current_time = now.strftime("%H:%M:%S")
+    current_time = now.strftime("%H-%M-%S") # Безопасные дефисы для имени и логов
+    display_time = now.strftime("%H:%M:%S")  # Красивые двоеточия только для экрана
     
     try:
         from summarizer import generate_summary
@@ -51,32 +54,35 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
     except Exception:
         theses = ["Первый тезис от ИИ", "Второй тезис от ИИ", "Третий тезис от ИИ"]
 
+    # Гарантируем наличие ровно 3 элементов в списке
     while len(theses) < 3:
         theses.append("Чистый код 2026")
 
-    # Форматируем тексты (убираем опасные кавычки)
+    # Очищаем тему вопроса пользователя
     clean_query = query_text.replace("'", "").replace('"', '').replace(':', ' ').strip()
     if len(clean_query) > 40: clean_query = clean_query[:37] + "..."
     
     q_wrapped = wrap_text(clean_query, max_chars=30)
     
-    # ИСПРАВЛЕНО: Убрали ffprobe. Считаем длину аудио математически по объёму текста!
-    # Робот читает в среднем со скоростью 12 символов в секунду.
-    full_text_length = len(" ".join(theses))
+    # Считаем длину аудио математически по объёму текста
+    full_text_length = len(" ".join([str(t) for t in theses]))
     audio_duration = max(12, round(full_text_length / 12, 1))
     
     # Делим время звука на 3 равных слайда для идеальной синхронизации
     slide_time = round(audio_duration / 3, 1)
     print(f"[ИИ Видео] Расчетная длина звука: {audio_duration} сек. Слайд: {slide_time} сек.")
 
-    # Разносим тезисы по отдельным переменным строго по номерам из списка
-    t1_raw = str(theses[0]).replace("'", "").replace('"', '').replace(':', '').strip()
-    t2_raw = str(theses[1]).replace("'", "").replace('"', '').replace(':', '').strip()
-    t3_raw = str(theses[2]).replace("'", "").replace('"', '').replace(':', '').strip()
+    # ИСПРАВЛЕНО: Извлекаем тезисы строго по одному (0, 1, 2) из списка, убирая опасные скобки
+    txt1 = str(theses[0]).replace("'", "").replace('"', '').replace(':', ' ').strip()
+    txt2 = str(theses[1]).replace("'", "").replace('"', '').replace(':', ' ').strip()
+    txt3 = str(theses[2]).replace("'", "").replace('"', '').replace(':', ' ').strip()
 
-    t1_wrapped = wrap_text(t1_raw)
-    t2_wrapped = wrap_text(t2_raw)
-    t3_wrapped = wrap_text(t3_raw)
+    t1_wrapped = wrap_text(txt1)
+    t2_wrapped = wrap_text(txt2)
+    t3_wrapped = wrap_text(txt3)
+
+    # Безопасный текст для титульного слайда (без запрещенных палочек)
+    title_text = f"ZAPROS  {clean_query}   --   DATA  {current_date}   --   VREMYA  {display_time}"
 
     if sys.platform.startswith("win"):
         ffmpeg_path = os.path.abspath("ffmpeg.exe")
@@ -90,7 +96,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
 
     font_path = find_font()
     
-    # Пуленепробиваемая команда FFmpeg с крупными часами и раздельным выводом тезисов
+    # Пуленепробиваемая команда FFmpeg с крупными часами и поштучными титрами
     command = [
         ffmpeg_path, "-y",
         "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -102,7 +108,7 @@ def generate_video(query_text, audio_file="audio.mp3", output_video="output.mp4"
         # Титульный экран: Вопрос сверху, а по центру КРУПНО желтая дата и время
         f"[0:v] drawtext=fontfile='{font_path}':text='{q_wrapped}':fontcolor=white:fontsize=24:"
         f"x=(w-text_w)/2:y=50:borderw=3:bordercolor=black [v1_title];"
-        f"[v1_title] drawtext=fontfile='{font_path}':text='{current_date}  {current_time}':fontcolor=yellow:fontsize=32:"
+        f"[v1_title] drawtext=fontfile='{font_path}':text='{current_date}  {display_time}':fontcolor=yellow:fontsize=32:"
         f"x=(w-text_w)/2:y=(h-text_h)/2:borderw=4:bordercolor=black [v1];"
         
         # Слайд 2: Первый тезис ИИ
