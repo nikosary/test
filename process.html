@@ -48,7 +48,6 @@
 
     <div class="loader-card">
         <div class="spinner"></div>
-        <!-- Добавили id для динамической смены бегущих ИИ-статусов -->
         <h2 id="ai-status">ИИ «Хочу знать» запускается...</h2>
         <p>Пожалуйста, подождите. Наша автономная нейросеть монтирует персональный MP4-ролик в облаке.</p>
     </div>
@@ -56,7 +55,6 @@
     <script>
         const statusElement = document.getElementById('ai-status');
         
-        // Список завораживающих фраз, которые будут по очереди сменяться на экране
         const aiSteps = [
             "🤖 Устанавливаю мост с Google Gemini AI...",
             "🔍 Нейросеть собирает ключевые факты по теме...",
@@ -67,7 +65,6 @@
 
         let currentStep = 0;
 
-        // Функция плавной смены завораживающих надписей каждые 3 секунды
         function updateStatus() {
             if (currentStep < aiSteps.length) {
                 statusElement.innerText = aiSteps[currentStep];
@@ -75,19 +72,35 @@
             }
         }
 
-        // Запускаем смену статусов сразу и повторяем каждые 3 секунды
         updateStatus();
-        setInterval(updateStatus, 3000);
+        const statusInterval = setInterval(updateStatus, 2500);
 
-        // Магия перенаправления: считываем поисковый запрос из адресной строки
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
         
         if (query) {
-            // Ровно через 15 секунд честного монтажа перекидываем пользователя на answer.html
-            setTimeout(() => {
-                window.location.href = `/answer.html?query=${encodeURIComponent(query)}`;
-            }, 15000);
+            async function checkVideoStatus() {
+                try {
+                    const response = await fetch(`/api/generate?query=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'ready' || data.success) {
+                        clearInterval(statusInterval);
+                        window.location.href = `/answer.html?video=${encodeURIComponent(data.video_url)}&query=${encodeURIComponent(query)}`;
+                    } else if (data.status === 'processing') {
+                        setTimeout(checkVideoStatus, 2000);
+                    } else {
+                        statusElement.innerText = "❌ Ошибка генерации видео.";
+                        clearInterval(statusInterval);
+                    }
+                } catch (error) {
+                    console.error("Ошибка связи с сервером:", error);
+                    setTimeout(checkVideoStatus, 3000);
+                }
+            }
+
+            checkVideoStatus();
+
         } else {
             window.location.href = 'index.html';
         }
