@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — ОБНОВЛЕННАЯ СБОРКА СЕРВЕРА
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА СЕРВЕРА
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -23,14 +23,12 @@ try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
 except ImportError:
-    print("[СЕРВЕР] ⚠️ Предупреждение: Модуль video_generator не найден")
     generate_video = None
 
 try:
     from voice_engine import generate_voice
     print("[СЕРВЕР] ✅ Модуль voice_engine успешно подключен")
 except ImportError:
-    print("[СЕРВЕР] ⚠️ Предупреждение: Модуль voice_engine не найден")
     generate_voice = None
 
 # Глобальная переменная для хранения последних тезисов ИИ
@@ -227,3 +225,5 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             except Exception:
                 html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
 
+            target_marker = '<ul class="thesis-list">'
+            replacement = f'<ul class="thesis-list">{thesis_blocks}'
