@@ -70,14 +70,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            if not raw_query or not raw_query[0].strip():
+            if not raw_query or not raw_query.strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query[0].strip()
+            user_query = raw_query.strip()
 
             # Фиксируем точное время до секунды в момент запроса
             now = datetime.now()
@@ -125,7 +125,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             ffmpeg_path = "ffmpeg"
             try:
                 import static_ffmpeg
-                # Проверяем, развернут ли внутренний ffmpeg от библиотеки
                 if hasattr(static_ffmpeg, 'run'):
                     ffmpeg_path = "static_ffmpeg"
             except ImportError:
@@ -140,7 +139,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
             
-            # ИСПРАВЛЕНО СТРОГО ПО ИНДЕКСАМ: Текст на экранах больше не будет одинаковым!
+            # Текст на экранах будет разным и строго по индексам тезисов ИИ!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
@@ -150,7 +149,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             print("[ОБЛАКО RENDER] 🎬 FFmpeg начинает склейку экранов со звуком...")
             video_ready = False
             try:
-                # Если используем исполняемый файл напрямую через subprocess
                 cmd = [
                     "ffmpeg" if ffmpeg_path == "ffmpeg" else "static_ffmpeg", "-y",
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", 
@@ -222,3 +220,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         while True:
                             chunk = video_file.read(65536)
                             if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                    return
+                except Exception:
+                    return
