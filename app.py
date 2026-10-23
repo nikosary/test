@@ -10,7 +10,7 @@ import subprocess
 import time
 from datetime import datetime
 
-print("[СЕРВЕР] 🚀 Старт пуленепробиваемой системы Чистый Код 2026...")
+print("[СЕРВЕР] 🚀 Запуск автономной ИИ-системы Чистый Код 2026...")
 
 try:
     from summarizer import generate_summary
@@ -220,7 +220,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
-            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
+            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Video создано", "Чистый код 2026"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
             
             try:
+                with open("answer.html", "r", encoding="utf-8") as f:
