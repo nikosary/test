@@ -1,3 +1,6 @@
+# ==========================================================
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — ОБНОВЛЕННАЯ СБОРКА СЕРВЕРА
+# ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import json
@@ -7,30 +10,34 @@ import subprocess
 import time
 from datetime import datetime
 
+print("[СЕРВЕР] 🚀 Инициализация пуленепробиваемого веб-моста...")
+
 try:
     from summarizer import generate_summary
-    print("[СЕРВЕР] ✅ Модуль summarizer подключен")
+    print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
 except ImportError:
-    print("[СЕРВЕР] ❌ Ошибка: Не найден файл summarizer.py!")
+    print("[СЕРВЕР] ❌ Критическая ошибка: Не найден файл summarizer.py!")
     sys.exit(1)
 
 try:
     from video_generator import generate_video
-    print("[СЕРВЕР] ✅ Модуль video_generator подключен")
+    print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
 except ImportError:
+    print("[СЕРВЕР] ⚠️ Предупреждение: Модуль video_generator не найден")
     generate_video = None
 
 try:
     from voice_engine import generate_voice
-    print("[СЕРВЕР] ✅ Модуль voice_engine подключен")
+    print("[СЕРВЕР] ✅ Модуль voice_engine успешно подключен")
 except ImportError:
+    print("[СЕРВЕР] ⚠️ Предупреждение: Модуль voice_engine не найден")
     generate_voice = None
 
-# Глобальная переменная для хранения последних сгенерированных тезисов ИИ
+# Глобальная переменная для хранения последних тезисов ИИ
 last_generated_theses = []
 
 def wrap_text_clean(text, max_chars=35):
-    """Аккуратно разбивает длинный текст на строки, чтобы он был читаемым на экране."""
+    """Аккуратно разбивает длинный текст на строки для экрана."""
     if not text:
         return ""
     clean_text = str(text).replace("[", "").replace("]", "").replace("'", "").replace('"', '')
@@ -69,13 +76,13 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             user_query = raw_query[0].strip()
 
-            # Фиксируем точное время и дату до секунды в момент запроса
+            # Фиксируем точное время до секунды
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
 
             print(f"\n{'='*60}")
-            print(f"[БЭКЕНД] 📨 ТОЧНЫЙ ЗАПУСК РОЛИКА: '{user_query}' в {display_time}")
+            print(f"[ОБЛАКО RENDER] 📨 ЗАПУСК РОЛИКА: '{user_query}' в {display_time}")
             print(f"{'='*60}")
 
             # Шаг A. Создаем тезисы через ИИ
@@ -85,7 +92,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     theses = [t.strip() for t in live_theses.split(".") if t.strip()]
                 else:
                     theses = list(live_theses)
-            except Exception:
+            except Exception as e:
+                print(f"[ОБЛАКО RENDER] ⚠️ Сбой ИИ, создаю заглушки: {e}")
                 theses = [
                     f"Ответ на запрос: {user_query}",
                     "ИИ-алгоритмы проекта Чистый код 2026 успешно обработали тему.",
@@ -95,18 +103,17 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(theses) < 3:
                 theses.append("Чистый контент 2026")
 
-            # Сохраняем в глобальную переменную для страницы ответа
             last_generated_theses = theses
 
-            # Шаг B. Создаем аудио-озвучку audio.mp3 через наш voice_engine
+            # Шаг B. Создаем аудио-озвучку
             audio_file = "audio.mp3"
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=audio_file)
                 except Exception as voice_err:
-                    print(f"[БЭКЕНД] ⚠️ Ошибка голосового движка: {voice_err}")
+                    print(f"[ОБЛАКО RENDER] ⚠️ Ошибка голосового движка: {voice_err}")
 
-            # Шаг C. Начинаем профессиональный монтаж силами сервера Render
+            # Шаг C. Начинаем профессиональный монтаж через FFmpeg
             if os.path.exists("output.mp4"):
                 try: os.remove("output.mp4")
                 except Exception: pass
@@ -115,7 +122,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
                 ffmpeg_path = os.path.abspath("ffmpeg.exe")
 
-            # Готовим тексты: разбиваем на красивые короткие читаемые строчки
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
@@ -124,10 +130,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
 
-            # Рассчитываем время: каждая картинка показывается по 4 секунды
             slide_time = 4.0  
             
-            print("[БЭКЕНД] 🎬 FFmpeg собирает фильм с титрами, часами и звуком...")
+            print("[ОБЛАКО RENDER] 🎬 FFmpeg начинает склейку экранов со звуком...")
             video_ready = False
             try:
                 cmd = [
@@ -161,10 +166,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "output.mp4"]
                 
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                print("[БЭКЕНД] 🎉 ПОЛНЫЙ ФИЛЬМ С ЧАСАМИ И ТИТРАМИ УСПЕШНО СМОНТИРОВАН!")
+                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
                 video_ready = True
             except Exception as ffmpeg_err:
-                print(f"[БЭКЕНД] ❌ Ошибка FFmpeg монтажа: {ffmpeg_err}")
+                print(f"[ОБЛАКО RENDER] ❌ Ошибка FFmpeg: {ffmpeg_err}")
                 video_ready = False
 
             if not video_ready:
@@ -222,5 +227,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             except Exception:
                 html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
 
-            target_marker = '<ul class="thesis-list">'
-            replacement = f'<ul class="thesis-list">{thesis_blocks}'
