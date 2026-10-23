@@ -122,12 +122,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             except ImportError:
                 pass
 
+            if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
+                ffmpeg_path = os.path.abspath("ffmpeg.exe")
+
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
             
-            # ИСПРАВЛЕНО: Тексты на слайдах будут строго разными по индексам!
+            # Тексты на слайдах будут строго разными по индексам!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
@@ -200,7 +203,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File Not Found")
             return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА (ПЛОСКАЯ СТРУКТУРА БЕЗ ВЛОЖЕННОСТЕЙ)
+        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА (ПЛОСКАЯ СТРУКТУРА)
         if parsed_url.path == "/answer.html":
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
@@ -211,5 +214,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             target_marker = '<ul class="thesis-list">'
             replacement = f'<ul class="thesis-list">{thesis_blocks}'
             updated_html = html_content.replace(target_marker, replacement)
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
