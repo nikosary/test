@@ -60,7 +60,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [''])
             
-            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ОШИБКИ: Достаем чистую строку из списка
+            # ИСПРАВЛЕНО: Извлекаем строку из списка корректно
             user_query = raw_query_list[0].strip() if raw_query_list else ""
             
             if not user_query:
@@ -94,6 +94,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
+            
+            # ТОЧНОЕ ИСПРАВЛЕНИЕ ДЛЯ ПЛЕЕРА: Передаем отдельные элементы по индексам!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
@@ -136,8 +138,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         if parsed_url.path == "/output.mp4":
             if os.path.exists(OUTPUT_VIDEO_PATH):
+                file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
                 self.send_response(200)
                 self.send_header("Content-type", "video/mp4")
+                self.send_header("Content-Length", str(file_size))
+                self.send_header("Accept-Ranges", "bytes")
                 self.end_headers()
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                     while True:
