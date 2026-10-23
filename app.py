@@ -67,7 +67,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         # ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ДИНАМИЧЕСКОГО СИСТЕМНОГО РОУТА (Защита от 404 ошибки)
         if parsed_url.path == "/api/generate":
-            query_params = urllib.parse.parse_qs(parsed_url.query)
+            query_params = urllib.parse.search_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
             if not raw_query or not raw_query[0].strip():
@@ -96,7 +96,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 else:
                     theses = list(live_theses)
             except Exception as e:
-                print(f"[БЭКЕНД] ⚠️ Сбой ИИ, создаю заглушки: {e}")
+                print(f"[ОБЛАКО RENDER] ⚠️ Сбой ИИ, создаю заглушки: {e}")
                 theses = [
                     f"Ответ на запрос: {user_query}",
                     "ИИ-алгоритмы проекта Чистый код 2026 успешно обработали тему.",
@@ -106,6 +106,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(theses) < 3:
                 theses.append("Чистый контент 2026")
 
+            # Сохраняем в глобальную переменную для страницы ответа
             last_generated_theses = theses
 
             # Шаг B. Создаем аудио-озвучку
@@ -136,7 +137,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
             
-            # ИСПРАВЛЕНО: Текст на экранах будет разным и строго по индексам тезисов ИИ!
+            # ЖЕСТКОЕ ИСПРАВЛЕНИЕ: Передаем строгие индексы элементов, чтобы FFmpeg не падал!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
