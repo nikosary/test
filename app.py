@@ -122,13 +122,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             except ImportError:
                 pass
 
-            if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
-                ffmpeg_path = os.path.abspath("ffmpeg.exe")
-
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
+            
+            # ИСПРАВЛЕНО: Тексты на слайдах будут строго разными по индексам!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
@@ -213,3 +212,4 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             replacement = f'<ul class="thesis-list">{thesis_blocks}'
             updated_html = html_content.replace(target_marker, replacement)
             self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
