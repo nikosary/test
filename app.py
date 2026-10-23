@@ -70,14 +70,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            if not raw_query or not raw_query.strip():
+            if not raw_query or not raw_query[0].strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query.strip()
+            user_query = raw_query[0].strip()
 
             # Фиксируем точное время до секунды в момент запроса
             now = datetime.now()
@@ -179,7 +179,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
+                print("[БЭКЕНД] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
                 video_ready = True
             except Exception as ffmpeg_err:
                 print(f"[ОБЛАКО RENDER] ❌ Ошибка FFmpeg сборки: {ffmpeg_err}")
