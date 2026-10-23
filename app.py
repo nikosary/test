@@ -65,7 +65,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ДИНАМИЧЕСКОГО СИСТЕМНОГО РОУТА (Защита от 404 ошибки)
+        # ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ПУТИ: Защита от 404 ошибки на Render!
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
@@ -79,6 +79,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             user_query = raw_query[0].strip()
 
+            # Фиксируем точное время до секунды
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
@@ -87,6 +88,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             print(f"[БЭКЕНД RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
             print(f"{'='*60}")
 
+            # Шаг A. Создаем тезисы через ИИ
             try:
                 live_theses = generate_summary(user_query)
                 if isinstance(live_theses, str):
@@ -106,12 +108,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             last_generated_theses = theses
 
+            # Шаг B. Создаем аудио-озвучку в папке /tmp
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
                 except Exception as voice_err:
                     print(f"[БЭКЕНД] ⚠️ Ошибка голосового движка: {voice_err}")
 
+            # Шаг C. Начинаем профессиональный монтаж через FFmpeg
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
@@ -124,6 +128,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             except ImportError:
                 pass
 
+            if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
+                ffmpeg_path = os.path.abspath("ffmpeg.exe")
+
+            # Готовим тексты строго по твоим индексам, чтобы они были разными!
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
@@ -219,11 +227,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
-            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
-            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
-            
-            html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
-            if os.path.exists("answer.html"):
-                try:
-                    with open("answer.html", "r", encoding="utf-8") as f:
-                        html_content = f.read()
