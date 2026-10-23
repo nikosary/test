@@ -65,7 +65,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ПУТИ: Защита от 404 ошибки на Render!
+        # ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ДИНАМИЧЕСКОГО СИСТЕМНОГО РОУТА (Защита от 404 ошибки)
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
@@ -108,7 +108,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             last_generated_theses = theses
 
-            # Шаг B. Создаем аудио-озвучку в папке /tmp
+            # Шаг B. Создаем аудио-озвучку
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
@@ -131,11 +131,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
                 ffmpeg_path = os.path.abspath("ffmpeg.exe")
 
-            # Готовим тексты строго по твоим индексам, чтобы они были разными!
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
+            
+            # ИСПРАВЛЕНО: Текст на экранах будет разным и строго по индексам тезисов ИИ!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
