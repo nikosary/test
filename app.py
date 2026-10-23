@@ -58,13 +58,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            raw_query = query_params.get('query', [''])
-            if not raw_query or not raw_query.strip():
+            raw_query_list = query_params.get('query', [''])
+            
+            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ОШИБКИ: Достаем чистую строку из списка
+            user_query = raw_query_list[0].strip() if raw_query_list else ""
+            
+            if not user_query:
                 self.send_response(400)
                 self.end_headers()
                 return
 
-            user_query = raw_query.strip()
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
@@ -158,7 +161,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-# ТВОЙ ОФИЦИАЛЬНЫЙ СТАРТОВЫЙ БЛОК ПОРТА ДЛЯ RENDER (НА САМОМ ДНЕ ФАЙЛА)
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', PORT), AiServiceHandler)
