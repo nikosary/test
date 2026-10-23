@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ СЕРВЕР
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — ПОЛНАЯ КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -69,22 +69,23 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
-            if not raw_query or not raw_query[0].strip():
+            if not raw_query or not raw_query.strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query[0].strip()
+            user_query = raw_query.strip()
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
 
             print(f"\n{'='*60}")
-            print(f"[БЭКЕНД RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
+            print(f"[ОБЛАКО RENDER] 📨 ЗАПУСК РОЛИКА: '{user_query}' в {display_time}")
             print(f"{'='*60}")
 
+            # Шаг A. Создаем тезисы через ИИ
             try:
                 live_theses = generate_summary(user_query)
                 if isinstance(live_theses, str):
@@ -92,7 +93,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 else:
                     theses = list(live_theses)
             except Exception as e:
-                print(f"[БЭКЕНД] ⚠️ Сбой ИИ, создаю заглушки: {e}")
+                print(f"[ОБЛАКО RENDER] ⚠️ Сбой ИИ, создаю заглушки: {e}")
                 theses = [
                     f"Ответ на запрос: {user_query}",
                     "ИИ-алгоритмы проекта Чистый код 2026 успешно обработали тему.",
@@ -102,14 +103,17 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(theses) < 3:
                 theses.append("Чистый контент 2026")
 
+            # Сохраняем в глобальную переменную для страницы ответа
             last_generated_theses = theses
 
+            # Шаг B. Создаем аудио-озвучку audio.mp3 в папке /tmp
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
                 except Exception as voice_err:
-                    print(f"[БЭКЕНД] ⚠️ Ошибка голосового движка: {voice_err}")
+                    print(f"[ОБЛАКО RENDER] ⚠️ Ошибка голосового движка: {voice_err}")
 
+            # Шаг C. Начинаем профессиональный монтаж через FFmpeg
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
@@ -125,18 +129,20 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
                 ffmpeg_path = os.path.abspath("ffmpeg.exe")
 
+            # Готовим тексты: разбиваем на красивые короткие читаемые строчки
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
             
-            # Тексты на слайдах будут строго разными по индексам!
+            # ЖЕСТКОЕ ИСПРАВЛЕНИЕ ПО ИНДЕКСАМ: Тексты на слайдах будут строго разными!
             t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
 
-            slide_time = 4.0  
-            print("[БЭКЕНД] 🎬 FFmpeg начинает склейку экранов со звуком...")
+            slide_time = 4.0  # Каждая картинка показывается по 4 секунды
+            
+            print("[ОБЛАКО RENDER] 🎬 FFmpeg начинает склейку экранов со звуком...")
             video_ready = False
             try:
                 cmd = [
@@ -146,6 +152,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
                 ]
+                
                 if os.path.exists(AUDIO_FILE_PATH) and os.path.getsize(AUDIO_FILE_PATH) > 0:
                     cmd += ["-i", AUDIO_FILE_PATH]
                     has_audio = True
@@ -160,15 +167,19 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     f"[3:v] drawtext=text='{t3_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v4];"
                     "[v1][v2][v3][v4] concat=n=4:v=1:a=0 [v_final]"
                 )
+
                 cmd += ["-filter_complex", filter_string, "-map", "[v_final]"]
+                
                 if has_audio:
                     cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
+                
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
+                
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                print("[БЭКЕНД] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
+                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
                 video_ready = True
             except Exception as ffmpeg_err:
-                print(f"[БЭКЕНД] ❌ Ошибка FFmpeg сборки: {ffmpeg_err}")
+                print(f"[ОБЛАКО RENDER] ❌ Ошибка FFmpeg сборки: {ffmpeg_err}")
                 video_ready = False
 
             if not video_ready:
@@ -178,39 +189,39 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception: pass
 
             time.sleep(2.5)
+
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            response_data = {"status": "ready", "video_url": f"/output.mp4?t={int(time.time())}", "theses": last_generated_theses}
+            response_data = {
+                "status": "ready",
+                "video_url": f"/output.mp4?t={int(time.time())}",
+                "theses": last_generated_theses
+            }
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА ВИДЕОПОТОКА ИЗ ПАПКИ /tmp
+        # 2. НАДЕЖНАЯ ОТДАЧА СТРИМИНГОВОГО ВИДЕО ИЗ ПАПКИ /tmp В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
             if os.path.exists(OUTPUT_VIDEO_PATH):
-                file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
-                self.send_response(200)
-                self.send_header("Content-type", "video/mp4")
-                self.send_header("Content-Length", str(file_size))
-                self.send_header("Accept-Ranges", "bytes") 
-                self.end_headers()
-                with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
-                    while True:
-                        chunk = video_file.read(65536)
-                        if not chunk: break
-                        self.wfile.write(chunk)
+                try:
+                    file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
+                    self.send_response(200)
+                    self.send_header("Content-type", "video/mp4")
+                    self.send_header("Content-Length", str(file_size))
+                    self.send_header("Accept-Ranges", "bytes") 
+                    self.end_headers()
+                    
+                    with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
+                        while True:
+                            chunk = video_file.read(65536)
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                    return
+                except Exception:
+                    return
+            else:
+                self.send_error(404, "File Not Found")
                 return
-            self.send_error(404, "File Not Found")
-            return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА (ПЛОСКАЯ СТРУКТУРА)
-        if parsed_url.path == "/answer.html":
-            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
-            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
-            html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
-            if os.path.exists("answer.html"):
-                with open("answer.html", "r", encoding="utf-8") as f:
-                    html_content = f.read()
-            target_marker = '<ul class="thesis-list">'
-            replacement = f'<ul class="thesis-list">{thesis_blocks}'
-            updated_html = html_content.replace(target_marker, replacement)
