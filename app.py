@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА СЕРВЕРА
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ СЕРВЕР
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -10,7 +10,7 @@ import subprocess
 import time
 from datetime import datetime
 
-print("[СЕРВЕР] 🚀 Инициализация пуленепробиваемого веб-моста...")
+print("[СЕРВЕР] 🚀 Старт пуленепробиваемой системы Чистый Код 2026...")
 
 try:
     from summarizer import generate_summary
@@ -33,6 +33,11 @@ except ImportError:
 
 # Глобальная переменная для хранения последних тезисов ИИ
 last_generated_theses = []
+
+# НАСТРОЙКА ДЛЯ RENDER: Переносим создание файлов в безопасную системную папку /tmp
+TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
+OUTPUT_VIDEO_PATH = os.path.join(TEMP_DIR, "output.mp4")
+AUDIO_FILE_PATH = os.path.join(TEMP_DIR, "audio.mp3")
 
 def wrap_text_clean(text, max_chars=35):
     """Аккуратно разбивает длинный текст на строки для экрана."""
@@ -103,17 +108,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             last_generated_theses = theses
 
-            # Шаг B. Создаем аудио-озвучку
-            audio_file = "audio.mp3"
+            # Шаг B. Создаем аудио-озвучку в папке /tmp
             if generate_voice:
                 try:
-                    generate_voice(theses, output_audio=audio_file)
+                    generate_voice(theses, output_audio=AUDIO_FILE_PATH)
                 except Exception as voice_err:
                     print(f"[ОБЛАКО RENDER] ⚠️ Ошибка голосового движка: {voice_err}")
 
             # Шаг C. Начинаем профессиональный монтаж через FFmpeg
-            if os.path.exists("output.mp4"):
-                try: os.remove("output.mp4")
+            if os.path.exists(OUTPUT_VIDEO_PATH):
+                try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
 
             ffmpeg_path = "ffmpeg"
@@ -141,8 +145,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
                 ]
                 
-                if os.path.exists(audio_file) and os.path.getsize(audio_file) > 0:
-                    cmd += ["-i", audio_file]
+                if os.path.exists(AUDIO_FILE_PATH) and os.path.getsize(AUDIO_FILE_PATH) > 0:
+                    cmd += ["-i", AUDIO_FILE_PATH]
                     has_audio = True
                 else:
                     has_audio = False
@@ -161,7 +165,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 if has_audio:
                     cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 
-                cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "output.mp4"]
+                cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
@@ -172,7 +176,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             if not video_ready:
                 try:
-                    cmd_alt = [ffmpeg_path, "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", "output.mp4"]
+                    cmd_alt = [ffmpeg_path, "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", OUTPUT_VIDEO_PATH]
                     subprocess.run(cmd_alt, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 except Exception: pass
 
@@ -189,18 +193,18 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. НАДЕЖНАЯ ОТДАЧА СТРИМИНГОВОГО ВИДЕО В ПЛЕЕР
+        # 2. НАДЕЖНАЯ ОТДАЧА СТРИМИНГОВОГО ВИДЕО ИЗ ПАПКИ /tmp В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
-            if os.path.exists("output.mp4"):
+            if os.path.exists(OUTPUT_VIDEO_PATH):
                 try:
-                    file_size = os.path.getsize("output.mp4")
+                    file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
                     self.send_response(200)
                     self.send_header("Content-type", "video/mp4")
                     self.send_header("Content-Length", str(file_size))
                     self.send_header("Accept-Ranges", "bytes") 
                     self.end_headers()
                     
-                    with open("output.mp4", "rb") as video_file:
+                    with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                         while True:
                             chunk = video_file.read(65536)
                             if not chunk:
@@ -220,10 +224,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
             
             try:
-                with open("answer.html", "r", encoding="utf-8") as f:
-                    html_content = f.read()
-            except Exception:
-                html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
-
-            target_marker = '<ul class="thesis-list">'
-            replacement = f'<ul class="thesis-list">{thesis_blocks}'
