@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ СЕРВЕР
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА СЕРВЕРА
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -10,7 +10,7 @@ import subprocess
 import time
 from datetime import datetime
 
-print("[СЕРВЕР] 🚀 Старт пуленепробиваемой системы Чистый Код 2026...")
+print("[СЕРВЕР] 🚀 Запуск автономной ИИ-системы Чистый Код 2026...")
 
 try:
     from summarizer import generate_summary
@@ -70,14 +70,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            if not raw_query or not raw_query.strip():
+            if not raw_query or not raw_query[0].strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query.strip()
+            user_query = raw_query[0].strip()
 
             # Фиксируем точное время до секунды
             now = datetime.now()
@@ -108,7 +108,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             last_generated_theses = theses
 
-            # Шаг B. Создаем аудио-озвучку в папке /tmp
+            # Шаг B. Создаем аудио-озвучку
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
@@ -128,9 +128,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-            t1_wrapped = wrap_text_clean(theses, max_chars=35)
-            t2_wrapped = wrap_text_clean(theses, max_chars=35)
-            t3_wrapped = wrap_text_clean(theses, max_chars=35)
+            t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
+            t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
+            t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
 
             slide_time = 4.0  
             
@@ -211,8 +211,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                                 break
                             self.wfile.write(chunk)
                     return
-                except Exception as ev_err:
-                    print(f"[СЕРВЕР] ❌ Ошибка передачи видеопотока: {ev_err}")
+                except Exception:
                     return
             else:
                 self.send_error(404, "File Not Found")
@@ -223,4 +222,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
             
-            # Сверхнадежное дефолтное поведение, если файл не прочитался
+            try:
+                with open("answer.html", "r", encoding="utf-8") as f:
+                    html_content = f.read()
+            except Exception:
