@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ СЕРВЕР
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — ПОЛНАЯ КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -10,7 +10,7 @@ import subprocess
 import time
 from datetime import datetime
 
-print("[СЕРВЕР] 🚀 Старт пуленепробиваемой системы Чистый Код 2026...")
+print("[СЕРВЕР] 🚀 Запуск автономной ИИ-системы Чистый Код 2026...")
 
 try:
     from summarizer import generate_summary
@@ -70,16 +70,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [''])
             
-            if not raw_query or not raw_query.strip():
+            if not raw_query or not raw_query[0].strip():
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query.strip()
+            user_query = raw_query[0].strip()
 
-            # Фиксируем точное время до секунды
+            # Фиксируем точное время до секунды в момент запроса
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
@@ -106,9 +106,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             while len(theses) < 3:
                 theses.append("Чистый контент 2026")
 
+            # Сохраняем в глобальную переменную для страницы ответа
             last_generated_theses = theses
 
-            # Шаг B. Создаем аудио-озвучку в папке /tmp
+            # Шаг B. Создаем аудио-озвучку audio.mp3 в папке /tmp
             if generate_voice:
                 try:
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
@@ -120,25 +121,38 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
 
+            # Ищем FFmpeg, который скачала утилита static-ffmpeg
             ffmpeg_path = "ffmpeg"
+            try:
+                import static_ffmpeg
+                # Проверяем, развернут ли внутренний ffmpeg от библиотеки
+                if hasattr(static_ffmpeg, 'run'):
+                    ffmpeg_path = "static_ffmpeg"
+            except ImportError:
+                pass
+
             if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
                 ffmpeg_path = os.path.abspath("ffmpeg.exe")
 
+            # Готовим тексты: разбиваем на красивые короткие читаемые строчки
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-            t1_wrapped = wrap_text_clean(theses, max_chars=35)
-            t2_wrapped = wrap_text_clean(theses, max_chars=35)
-            t3_wrapped = wrap_text_clean(theses, max_chars=35)
+            
+            # ИСПРАВЛЕНО СТРОГО ПО ИНДЕКСАМ: Текст на экранах больше не будет одинаковым!
+            t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
+            t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
+            t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
 
-            slide_time = 4.0  
+            slide_time = 4.0  # Каждая картинка показывается по 4 секунды
             
             print("[ОБЛАКО RENDER] 🎬 FFmpeg начинает склейку экранов со звуком...")
             video_ready = False
             try:
+                # Если используем исполняемый файл напрямую через subprocess
                 cmd = [
-                    ffmpeg_path, "-y",
+                    "ffmpeg" if ffmpeg_path == "ffmpeg" else "static_ffmpeg", "-y",
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d5a27:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
@@ -168,15 +182,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
+                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
                 video_ready = True
             except Exception as ffmpeg_err:
-                print(f"[ОБЛАКО RENDER] ❌ Ошибка FFmpeg: {ffmpeg_err}")
+                print(f"[ОБЛАКО RENDER] ❌ Ошибка FFmpeg сборки: {ffmpeg_err}")
                 video_ready = False
 
             if not video_ready:
                 try:
-                    cmd_alt = [ffmpeg_path, "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", OUTPUT_VIDEO_PATH]
+                    cmd_alt = ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", OUTPUT_VIDEO_PATH]
                     subprocess.run(cmd_alt, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 except Exception: pass
 
@@ -208,18 +222,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         while True:
                             chunk = video_file.read(65536)
                             if not chunk:
-                                break
-                            self.wfile.write(chunk)
-                    return
-                except Exception:
-                    return
-            else:
-                self.send_error(404, "File Not Found")
-                return
-
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ ИИ В СТРАНИЦУ ОТВЕТА (БЕЗ ОПАСНЫХ ОТСТУПОВ TRY/EXCEPT)
-        if parsed_url.path == "/answer.html":
-            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
-            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
-            
-            # Читаем страницу безопасно и без уязвимых блоков отступов
