@@ -67,7 +67,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
         
-        # Пропускаем запросы фавиконок
+        # Пропускаем системные запросы иконок
         if parsed_url.path == "/favicon.ico":
             self.send_response(404)
             self.end_headers()
@@ -82,7 +82,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             print(f"[DEBUG] raw_query_list: {raw_query_list}")
             
-            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ОШИБКИ СПИСКА: Берем элемент строго по индексу 0
+            # Извлекаем чистую строку из первой ячейки списка
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -136,18 +136,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"[DEBUG] Ошибка удаления старого файла: {e}")
 
-            # Шаг D: Настройка движка FFmpeg
+            # Шаг D: Настройка FFmpeg
             ffmpeg_path = "static_ffmpeg"
             if sys.platform.startswith("win"):
                 ffmpeg_path = "ffmpeg"
-            print(f"[DEBUG] ffmpeg_path: {ffmpeg_path}")
-            
-            # Проверка доступности утилиты
-            try:
-                result = subprocess.run([ffmpeg_path, "-version"], capture_output=True, text=True)
-                print(f"[DEBUG] FFmpeg version check: {result.stdout[:100]}")
-            except Exception as e:
-                print(f"[DEBUG] FFmpeg не запущен напрямую: {e}")
+            print(f"[DEBUG] Установлен движок ffmpeg_path: {ffmpeg_path}")
 
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
@@ -159,7 +152,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             slide_time = 4.0
             
-            # Шаг E: Генерация видео через FFmpeg (ПОЛНАЯ КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА)
+            # Шаг E: Генерация видео через FFmpeg
             print("[DEBUG] Начинаю генерацию видео...")
             try:
                 cmd = [
@@ -193,7 +186,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[DEBUG] Критическая ошибка сборки через FFmpeg: {ffmpeg_err}")
+                print(f"[DEBUG] Критическая ошибка FFmpeg: {ffmpeg_err}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
@@ -211,3 +204,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "video/mp4")
                 self.send_header("Content-Length", str(file_size))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
+                    while True:
+                        chunk = video_file.read(65536)
+                        if not chunk: break
+                        self.wfile.write(chunk)
+                return
