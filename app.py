@@ -15,7 +15,7 @@ print(f"[DEBUG] Python version: {sys.version}")
 print(f"[DEBUG] Working directory: {os.getcwd()}")
 print(f"[DEBUG] PLATFORM: {sys.platform}")
 
-# Проверка модулей
+# Проверка ИИ модулей
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -26,18 +26,16 @@ except ImportError as e:
 try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
-except ImportError as e:
-    print(f"[СЕРВЕР] ⚠️ Модуль video_generator не найден: {e}")
+except ImportError:
     generate_video = None
 
 try:
     from voice_engine import generate_voice
     print("[СЕРВЕР] ✅ Модуль voice_engine успешно подключен")
-except ImportError as e:
-    print(f"[СЕРВЕР] ⚠️ Модуль voice_engine не найден: {e}")
+except ImportError:
     generate_voice = None
 
-# Глобальные переменные
+# Настройка системных папок под облако Render
 last_generated_theses = []
 TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
 OUTPUT_VIDEO_PATH = os.path.join(TEMP_DIR, "output.mp4")
@@ -67,30 +65,23 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
         
-        # Пропускаем системные запросы иконок
         if parsed_url.path == "/favicon.ico":
             self.send_response(404)
             self.end_headers()
             return
 
-        # 1. ГЕНЕРАЦИЯ ВИДЕО
+        # 1. СБОРКА И МОНТАЖ ФИЛЬМА ЧЕРЕЗ ИИ
         if parsed_url.path == "/api/generate":
             print("[DEBUG] =========== /api/generate START ===========")
-            
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [])
             
-            print(f"[DEBUG] raw_query_list: {raw_query_list}")
-            
-            # Извлекаем чистую строку из первой ячейки списка
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
             
             print(f"[DEBUG] user_query: '{user_query}'")
-            
             if not user_query:
-                print("[DEBUG] Empty query, returning 400")
                 self.send_response(400)
                 self.end_headers()
                 return
@@ -101,46 +92,26 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             print(f"[ОБЛАКО RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
 
-            # Шаг A: Генерация тезисов
-            print("[DEBUG] Вызываю generate_summary...")
             try:
                 live_theses = generate_summary(user_query)
-                print(f"[DEBUG] generate_summary вернул: {live_theses}")
                 theses = [t.strip() for t in live_theses.split(".") if t.strip()] if isinstance(live_theses, str) else list(live_theses)
             except Exception as e:
-                print(f"[DEBUG] Ошибка generate_summary: {e}")
+                print(f"[DEBUG] Ошибка ИИ: {e}")
                 theses = [f"Ответ на запрос: {user_query}", "ИИ успешно обработал тему.", "Контент сформирован в облаке."]
 
-            print(f"[DEBUG] Тезисы: {theses}")
-            
-            while len(theses) < 3: 
-                theses.append("Чистый контент 2026")
-            
+            while len(theses) < 3: theses.append("Чистый контент 2026")
             last_generated_theses = theses
 
-            # Шаг B: Генерация аудио
-            print("[DEBUG] Проверяю generate_voice...")
             if generate_voice:
-                try:
-                    print(f"[DEBUG] Вызываю generate_voice с {AUDIO_FILE_PATH}")
-                    generate_voice(theses, output_audio=AUDIO_FILE_PATH)
-                    print(f"[DEBUG] Аудио создано: {os.path.exists(AUDIO_FILE_PATH)}")
-                except Exception as e:
-                    print(f"[DEBUG] Ошибка generate_voice: {e}")
+                try: generate_voice(theses, output_audio=AUDIO_FILE_PATH)
+                except Exception: pass
 
-            # Шаг C: Удаление старого видео
-            if os.path.exists(OUTPUT_VIDEO_PATH): 
-                try: 
-                    os.remove(OUTPUT_VIDEO_PATH)
-                    print(f"[DEBUG] Удален старый файл: {OUTPUT_VIDEO_PATH}")
-                except Exception as e:
-                    print(f"[DEBUG] Ошибка удаления старого файла: {e}")
+            if os.path.exists(OUTPUT_VIDEO_PATH):
+                try: os.remove(OUTPUT_VIDEO_PATH)
+                except Exception: pass
 
-            # Шаг D: Настройка FFmpeg
             ffmpeg_path = "static_ffmpeg"
-            if sys.platform.startswith("win"):
-                ffmpeg_path = "ffmpeg"
-            print(f"[DEBUG] Установлен движок ffmpeg_path: {ffmpeg_path}")
+            if sys.platform.startswith("win"): ffmpeg_path = "ffmpeg"
 
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
@@ -151,9 +122,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
 
             slide_time = 4.0
-            
-            # Шаг E: Генерация видео через FFmpeg
-            print("[DEBUG] Начинаю генерацию видео...")
             try:
                 cmd = [
                     ffmpeg_path, "-y",
@@ -162,12 +130,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
                 ]
-                
                 has_audio = os.path.exists(AUDIO_FILE_PATH) and os.path.getsize(AUDIO_FILE_PATH) > 0
-                print(f"[DEBUG] has_audio: {has_audio}")
-                
-                if has_audio: 
-                    cmd += ["-i", AUDIO_FILE_PATH]
+                if has_audio: cmd += ["-i", AUDIO_FILE_PATH]
 
                 filter_string = (
                     f"[0:v] drawtext=text='{q_wrapped}':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=100:borderw=2:bordercolor=black [v1_title];"
@@ -178,15 +142,13 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     "[v1][v2][v3][v4] concat=n=4:v=1:a=0 [v_final]"
                 )
                 cmd += ["-filter_complex", filter_string, "-map", "[v_final]"]
-                if has_audio: 
-                    cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
+                if has_audio: cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
-                print(f"[DEBUG] Executing CMD: {' '.join(cmd)}")
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[DEBUG] Критическая ошибка FFmpeg: {ffmpeg_err}")
+                print(f"[DEBUG] Ошибка FFmpeg: {ffmpeg_err}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
@@ -195,12 +157,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА ВИДЕОПОТОКА В ПЛЕЕР
+        # 2. ОТДАЧА СТРИМИНГОВОГО ВИДЕО В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
-            print(f"[DEBUG] Запрос потока /output.mp4. Проверяю путь: {OUTPUT_VIDEO_PATH}")
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
-                print(f"[DEBUG] Видео найдено! Размер: {file_size} байт. Отдаю поток...")
                 self.send_response(200)
                 self.send_header("Content-type", "video/mp4")
                 self.send_header("Content-Length", str(file_size))
@@ -213,3 +173,32 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         if not chunk: break
                         self.wfile.write(chunk)
                 return
+            self.send_error(404, "File Not Found")
+            return
+
+        # 3. СТРАНИЦА ОТВЕТА С ТЕЗИСАМИ
+        if parsed_url.path == "/answer.html":
+            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
+            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
+            html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
+            if os.path.exists("answer.html"):
+                with open("answer.html", "r", encoding="utf-8") as f: html_content = f.read()
+            updated_html = html_content.replace('<ul class="thesis-list">', f'<ul class="thesis-list">{thesis_blocks}')
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(updated_html.encode("utf-8"))
+            return
+
+        return super().do_GET()
+
+# ПРЯМОЙ И СТРОГИЙ ЗАПУСК СЕРВЕРА СТРОГО НА ПОРТУ RENDER
+PORT = int(os.environ.get("PORT", 10000))
+server = HTTPServer(('0.0.0.0', PORT), AiServiceHandler)
+print("="*60)
+print(f"[СЕРВЕР] ✅ ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК НА ПОРТУ {PORT}")
+print("="*60)
+try:
+    server.serve_forever()
+except KeyboardInterrupt:
+    server.server_close()
