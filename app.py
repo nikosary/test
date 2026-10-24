@@ -61,7 +61,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [])
             
-            # НАДЁЖНОЕ ИСПРАВЛЕНИЕ: Достаем чистую строку без скобок и кавычек списка
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -75,12 +74,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
 
-            print(f"\n[ОБЛАКО RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
+            print(f"\n{'='*60}")
+            print(f"[БЭКЕНД RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
+            print(f"{'='*60}")
 
             try:
                 live_theses = generate_summary(user_query)
                 theses = [t.strip() for t in live_theses.split(".") if t.strip()] if isinstance(live_theses, str) else list(live_theses)
-            except Exception:
+            except Exception as e:
+                print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
                 theses = [f"Ответ на запрос: {user_query}", "ИИ успешно обработал тему.", "Контент сформирован в облаке."]
 
             while len(theses) < 3: theses.append("Чистый контент 2026")
@@ -94,7 +96,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
 
-            ffmpeg_path = "static_ffmpeg" if os.environ.get("PORT") else "ffmpeg"
+            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ПО СОВЕТУ DEVIN: Используем static_ffmpeg напрямую
+            ffmpeg_path = "static_ffmpeg"
+            if sys.platform.startswith("win"):
+                ffmpeg_path = "ffmpeg"
+
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
@@ -104,6 +110,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
 
             slide_time = 4.0
+            print(f"[БЭКЕНД] 🎬 Запускаю FFmpeg через движок: {ffmpeg_path}")
             try:
                 cmd = [
                     ffmpeg_path, "-y",
@@ -130,7 +137,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[БЭКЕНД] ❌ Ошибка FFmpeg: {ffmpeg_err}")
+                print(f"[БЭКЕНД] ❌ Критическая ошибка сборки ролика: {ffmpeg_err}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
@@ -139,7 +146,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА ВИДЕОПОТОКА ИЗ ПАПКИ /tmp (ИСПРАВЛЕНО ДЛЯ АКТИВАЦИИ КНОПКИ)
+        # 2. ОТДАЧА ВИДЕОПОТОКА ИЗ ПАПКИ /tmp
         if parsed_url.path == "/output.mp4":
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
