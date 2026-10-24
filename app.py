@@ -67,7 +67,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
         
-        print(f"[DEBUG] Received request: {parsed_url.path}")
+        # Пропускаем системные запросы иконки
+        if parsed_url.path == "/favicon.ico":
+            self.send_response(404)
+            self.end_headers()
+            return
 
         # 1. ГЕНЕРАЦИЯ ВИДЕО
         if parsed_url.path == "/api/generate":
@@ -112,7 +116,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 theses.append("Чистый контент 2026")
             
             last_generated_theses = theses
-            print(f"[DEBUG] last_generated_theses: {last_generated_theses}")
 
             # Шаг B: Генерация аудио
             print("[DEBUG] Проверяю generate_voice...")
@@ -123,8 +126,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     print(f"[DEBUG] Аудио создано: {os.path.exists(AUDIO_FILE_PATH)}")
                 except Exception as e:
                     print(f"[DEBUG] Ошибка generate_voice: {e}")
-            else:
-                print("[DEBUG] generate_voice = None, пропускаем")
 
             # Шаг C: Удаление старого видео
             if os.path.exists(OUTPUT_VIDEO_PATH): 
@@ -134,18 +135,18 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"[DEBUG] Ошибка удаления старого файла: {e}")
 
-            # Шаг D: Настройка FFmpeg движка
+            # Шаг D: Настройка FFmpeg
             ffmpeg_path = "static_ffmpeg"
             if sys.platform.startswith("win"):
                 ffmpeg_path = "ffmpeg"
-            print(f"[DEBUG] Выбран движок ffmpeg_path: {ffmpeg_path}")
+            print(f"[DEBUG] ffmpeg_path: {ffmpeg_path}")
             
-            # Проверка FFmpeg
+            # Проверка работоспособности FFmpeg
             try:
                 result = subprocess.run([ffmpeg_path, "-version"], capture_output=True, text=True)
                 print(f"[DEBUG] FFmpeg version check: {result.stdout[:100]}")
             except Exception as e:
-                print(f"[DEBUG] FFmpeg не найден через вызов: {e}")
+                print(f"[DEBUG] FFmpeg не запущен напрямую: {e}")
 
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
@@ -154,11 +155,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t1_wrapped = wrap_text_clean(theses[0] if len(theses) > 0 else "Тезис 1", max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1] if len(theses) > 1 else "Тезис 2", max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
-
-            print(f"[DEBUG] q_wrapped: {q_wrapped}")
-            print(f"[DEBUG] t1_wrapped: {t1_wrapped}")
-            print(f"[DEBUG] t2_wrapped: {t2_wrapped}")
-            print(f"[DEBUG] t3_wrapped: {t3_wrapped}")
 
             slide_time = 4.0
             
@@ -192,11 +188,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
-                print(f"[DEBUG] Вызываю subprocess для FFmpeg...")
+                print(f"[DEBUG] Executing CMD: {' '.join(cmd)}")
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[DEBUG] Критическая ошибка сборки ролика через FFmpeg: {ffmpeg_err}")
+                print(f"[DEBUG] Критическая ошибка сборки через FFmpeg: {ffmpeg_err}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
@@ -205,9 +201,15 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА ВИДЕОПОТОКА В ПЛЕЕР (С ФИКСАЦИЕЙ СОЕДИНЕНИЯ)
+        # 2. ОТДАЧА ВИДЕОПОТОКА В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
             print(f"[DEBUG] Запрос потока /output.mp4. Проверяю путь: {OUTPUT_VIDEO_PATH}")
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
-                print(f"[DEBUG] Видео найдено! Размер: {file_size} байт. Отдаю...")
+                print(f"[DEBUG] Видео найдено! Размер: {file_size} байт. Отдаю поток...")
+                self.send_response(200)
+                self.send_header("Content-type", "video/mp4")
+                self.send_header("Content-Length", str(file_size))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Connection", "close")
+                self.end_headers()
