@@ -56,11 +56,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
+        # 1. ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ПУТИ ГЕНЕРАЦИИ ВИДЕО (Защита от 404 ошибки)
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [])
             
-            # ЖЕЛЕЗОБЕТОННОЕ ИСПРАВЛЕНИЕ: Достаем чистый текст из нулевого индекса списка
+            # НАДЁЖНОЕ ИСПРАВЛЕНИЕ: Достаем чистую строку без скобок и кавычек списка
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -74,7 +75,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
 
-            print(f"\n[ОБЛАКО RENDER] 📨 ЗАПУСК МОНТАЖА: '{user_query}' в {display_time}")
+            print(f"\n[ОБЛАКО RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
 
             try:
                 live_theses = generate_summary(user_query)
@@ -89,7 +90,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 try: generate_voice(theses, output_audio=AUDIO_FILE_PATH)
                 except Exception: pass
 
-            if os.path.exists(OUTPUT_VIDEO_PATH): os.remove(OUTPUT_VIDEO_PATH)
+            if os.path.exists(OUTPUT_VIDEO_PATH): 
+                try: os.remove(OUTPUT_VIDEO_PATH)
+                except Exception: pass
 
             ffmpeg_path = "static_ffmpeg" if os.environ.get("PORT") else "ffmpeg"
             clean_q = user_query.replace("'", "").replace('"', "")
@@ -136,6 +139,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
+        # 2. ОТДАЧА ВИДЕОПОТОКА ИЗ ПАПКИ /tmp (ИСПРАВЛЕНО ДЛЯ АКТИВАЦИИ КНОПКИ)
         if parsed_url.path == "/output.mp4":
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
@@ -143,6 +147,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-type", "video/mp4")
                 self.send_header("Content-Length", str(file_size))
                 self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Connection", "close")
                 self.end_headers()
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                     while True:
@@ -150,7 +155,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                         if not chunk: break
                         self.wfile.write(chunk)
                 return
+            self.send_error(404, "File Not Found")
+            return
 
+        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
