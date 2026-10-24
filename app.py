@@ -58,9 +58,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            raw_query_list = query_params.get('query', [''])
+            raw_query_list = query_params.get('query', [])
             
-            # ИСПРАВЛЕНО: Безопасно достаем строку из списка, чтобы избежать AttributeError
+            # ЖЕЛЕЗОБЕТОННОЕ ИСПРАВЛЕНИЕ: Достаем чистый текст из нулевого индекса списка
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -96,8 +96,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-            
-            # ИСПРАВЛЕНО: Передаем каждый тезис отдельно по индексам для корректного видео
             t1_wrapped = wrap_text_clean(theses[0] if len(theses) > 0 else "Тезис 1", max_chars=35)
             t2_wrapped = wrap_text_clean(theses[1] if len(theses) > 1 else "Тезис 2", max_chars=35)
             t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
@@ -168,7 +166,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-# ТВОЙ ЖЕЛЕЗОБЕТОННЫЙ ПУСКОВОЙ БЛОК ДЛЯ СЕТИ RENDER
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', PORT), AiServiceHandler)
