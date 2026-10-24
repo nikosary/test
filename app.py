@@ -67,7 +67,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
         
-        # Пропускаем системные запросы иконки
+        # Пропускаем запросы фавиконок
         if parsed_url.path == "/favicon.ico":
             self.send_response(404)
             self.end_headers()
@@ -82,6 +82,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             print(f"[DEBUG] raw_query_list: {raw_query_list}")
             
+            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ОШИБКИ СПИСКА: Берем элемент строго по индексу 0
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -135,13 +136,13 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"[DEBUG] Ошибка удаления старого файла: {e}")
 
-            # Шаг D: Настройка FFmpeg
+            # Шаг D: Настройка движка FFmpeg
             ffmpeg_path = "static_ffmpeg"
             if sys.platform.startswith("win"):
                 ffmpeg_path = "ffmpeg"
             print(f"[DEBUG] ffmpeg_path: {ffmpeg_path}")
             
-            # Проверка работоспособности FFmpeg
+            # Проверка доступности утилиты
             try:
                 result = subprocess.run([ffmpeg_path, "-version"], capture_output=True, text=True)
                 print(f"[DEBUG] FFmpeg version check: {result.stdout[:100]}")
@@ -158,7 +159,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             slide_time = 4.0
             
-            # Шаг E: Генерация видео через FFmpeg
+            # Шаг E: Генерация видео через FFmpeg (ПОЛНАЯ КИНЕМАТОГРАФИЧЕСКАЯ СБОРКА)
             print("[DEBUG] Начинаю генерацию видео...")
             try:
                 cmd = [
@@ -210,6 +211,3 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "video/mp4")
                 self.send_header("Content-Length", str(file_size))
-                self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Connection", "close")
-                self.end_headers()
