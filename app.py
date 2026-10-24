@@ -96,7 +96,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 try: os.remove(OUTPUT_VIDEO_PATH)
                 except Exception: pass
 
-            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ПО СОВЕТУ DEVIN: Используем static_ffmpeg напрямую
+            # ДОБАВЛЕНО ПО СОВЕТУ DEVIN: Прямой вызов исполняемого пути static_ffmpeg
             ffmpeg_path = "static_ffmpeg"
             if sys.platform.startswith("win"):
                 ffmpeg_path = "ffmpeg"
@@ -110,7 +110,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
 
             slide_time = 4.0
-            print(f"[БЭКЕНД] 🎬 Запускаю FFmpeg через движок: {ffmpeg_path}")
+            
+            # ТРЕБОВАНИЕ DEVIN: Лог перед вызовом FFmpeg
+            print(f"[БЭКЕНД] 🎬 Запускаю FFmpeg: {ffmpeg_path}")
+            
             try:
                 cmd = [
                     ffmpeg_path, "-y",
