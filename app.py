@@ -76,11 +76,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [])
             
+            print(f"[DEBUG] raw_query_list: {raw_query_list}")
+            
+            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ ОШИБКИ СПИСКА: Берем элемент строго по индексу 0
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
             
-            print(f"[DEBUG] user_query: '{user_query}'")
+            print(f"[DEBUG] Очищенный user_query: '{user_query}'")
             if not user_query:
                 self.send_response(400)
                 self.end_headers()
@@ -94,6 +97,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
             try:
                 live_theses = generate_summary(user_query)
+                print(f"[DEBUG] generate_summary вернул: {live_theses}")
                 theses = [t.strip() for t in live_theses.split(".") if t.strip()] if isinstance(live_theses, str) else list(live_theses)
             except Exception as e:
                 print(f"[DEBUG] Ошибка ИИ: {e}")
@@ -117,9 +121,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-            t1_wrapped = wrap_text_clean(theses if len(theses) > 0 else "Тезис 1", max_chars=35)
-            t2_wrapped = wrap_text_clean(theses if len(theses) > 1 else "Тезис 2", max_chars=35)
-            t3_wrapped = wrap_text_clean(theses if len(theses) > 2 else "Тезис 3", max_chars=35)
+            t1_wrapped = wrap_text_clean(theses[0] if len(theses) > 0 else "Тезис 1", max_chars=35)
+            t2_wrapped = wrap_text_clean(theses[1] if len(theses) > 1 else "Тезис 2", max_chars=35)
+            t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
 
             slide_time = 4.0
             try:
@@ -145,10 +149,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 if has_audio: cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
                 
+                print(f"[DEBUG] Executing CMD: {' '.join(cmd)}")
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
                 print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[DEBUG] Ошибка FFmpeg: {ffmpeg_err}")
+                print(f"[DEBUG] Критическая ошибка FFmpeg: {ffmpeg_err}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
@@ -157,8 +162,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА СТРИМИНГОВОГО ВИДЕО В ПЛЕЕР (ПЛОСКИЙ БЕЗОПАСНЫЙ МЕТОД)
+        # 2. ОТДАЧА СТРИМИНГОВОГО ВИДЕО В ПЛЕЕР (ПЛОСКИЙ БЕЗОПАСНЫЙ МЕТОД БЕЗ WITH)
         if parsed_url.path == "/output.mp4":
+            print(f"[DEBUG] Запрос потока /output.mp4. Проверяю путь: {OUTPUT_VIDEO_PATH}")
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
                 self.send_response(200)
