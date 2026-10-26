@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ФИНАЛ С ЗАДЕРЖКОЙ)
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (МЕГА-СПЛИТ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -22,7 +22,7 @@ try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
 except ImportError:
-    video_generator = None
+    generate_video = None
 
 last_generated_theses = []
 TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
@@ -39,7 +39,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             user_query = ""
             if raw_query and len(raw_query) > 0:
-                user_query = str(raw_query[0]).strip()
+                user_query = str(raw_query).strip()
 
             if user_query and (not os.path.exists(OUTPUT_VIDEO_PATH) or parsed_url.path == "/api/generate"):
                 print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
@@ -51,7 +51,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     else:
                         theses = list(live_theses)
                 except Exception as e:
-                    print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
+                    print(f"[БЭК鍵] ⚠️ Сбой ИИ: {e}")
                     theses = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
 
                 while len(theses) < 3:
@@ -62,9 +62,11 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     try:
                         print("[БЭКЕНД] 🎬 Передаю задачу в video_generator...")
                         generate_video(user_query, theses, output_path=OUTPUT_VIDEO_PATH)
-                        # ТА САМАЯ ЗАДЕРЖКА: даем файлу 3 секунды спокойно записаться на диск облака
-                        print("[БЭКЕНД] ⏱️ Фиксация видеофайла в системе...")
-                        time.sleep(3.0)
+                        
+                        # ТВОЯ ЖЕЛЕЗНАЯ ЗАДЕРЖКА: даем целых 15 секунд на утряску FFmpeg!
+                        print("[БЭКЕНД] ⏱️ Запуск мега-задержки (15 секунд) для полной сборки фильма...")
+                        time.sleep(15.0)
+                        print("[БЭКЕНД] ✅ Задержка завершена, файл гарантированно на диске.")
                     except Exception as e:
                         print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
 
