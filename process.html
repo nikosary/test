@@ -72,51 +72,37 @@
         let currentStep = 0;
 
         function updateStatus() {
-            if (currentStep < aiSteps.length) {
-                statusElement.innerText = aiSteps[currentStep];
-                currentStep++;
-            }
+            statusElement.innerText = aiSteps[currentStep];
+            currentStep = (currentStep + 1) % aiSteps.length;
         }
 
         updateStatus();
-        // ШАГ КАРТОЧЕК — 5 СЕКУНД (5000 мс)
-        const statusInterval = setInterval(updateStatus, 5000);
+        const statusInterval = setInterval(updateStatus, 4000);
 
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
         
         if (query) {
-            const startTime = Date.now();
-
             async function checkVideoStatus() {
                 try {
                     const response = await fetch(`/api/generate?query=${encodeURIComponent(query)}`);
-                    if (!response.ok) {
-                        throw new Error("Ошибка сервера: " + response.status);
-                    }
-                    const data = await response.json();
-                    
-                    if (data.status === 'ready') {
-                        const elapsedTime = Date.now() - startTime;
-                        // ЖДЕМ МИНИМУМ 25 СЕКУНД (25000 мс) ДЛЯ ПОЛНОГО МОНТАЖА
-                        const minimumShowTime = 25000; 
-
-                        if (elapsedTime >= minimumShowTime) {
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'ready') {
                             clearInterval(statusInterval);
                             window.location.href = `/answer.html?video=${encodeURIComponent(data.video_url)}&query=${encodeURIComponent(query)}`;
-                        } else {
-                            setTimeout(checkVideoStatus, minimumShowTime - elapsedTime);
+                            return;
                         }
-                    } else {
-                        setTimeout(checkVideoStatus, 2000);
                     }
                 } catch (error) {
-                    console.error("Связь с облаком Render...", error);
-                    setTimeout(checkVideoStatus, 2000);
+                    console.error("Ожидание бэкенда...", error);
                 }
+                // Проверяем готовность каждые 3 секунды в фоне
+                setTimeout(checkVideoStatus, 3000);
             }
 
-            checkVideoStatus();
+            // Начинаем опрос через 5 секунд после старта страницы
+            setTimeout(checkVideoStatus, 5000);
 
         } else {
             window.location.href = 'index.html';
