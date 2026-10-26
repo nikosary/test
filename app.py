@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (СИНХРОННЫЙ)
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ФИКС ПУТИ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -26,8 +26,13 @@ except ImportError:
     generate_video = None
 
 last_generated_theses = []
+
+# ИСПРАВЛЕНИЕ ПУТИ: Ищем файл ролика в корне проекта, туда же, куда его пишет video_generator.py
+OUTPUT_VIDEO_PATH = "output.mp4"
+
+# Папку /tmp оставляем только под аудио, как прописано у Максима
 TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
-OUTPUT_VIDEO_PATH = os.path.join(TEMP_DIR, "output.mp4")
+AUDIO_FILE_PATH = os.path.join(TEMP_DIR, "audio.mp3")
 
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -38,12 +43,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [])
             
-            # Чистый текст запроса
             user_query = ""
             if raw_query and len(raw_query) > 0:
                 user_query = str(raw_query[0]).strip()
 
-            # Если файла нет или пришел прямой запрос — запускаем сборку
             if user_query and (not os.path.exists(OUTPUT_VIDEO_PATH) or parsed_url.path == "/api/generate"):
                 print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
                 
@@ -58,13 +61,13 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     theses_list = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
 
                 while len(theses_list) < 3:
-                    theses_list.append("Чистый код 2026")
+                    theses_list.append("Чистый контент 2026")
                 last_generated_theses = theses_list
 
-                # СИНХРОНИЗАЦИЯ: Передаем theses_list строго по имени аргумента Максима
                 if generate_video:
                     try:
                         print("[БЭКЕНД] 🎬 Передаю задачу в оригинальный video_generator...")
+                        # Генерируем ролик прямо в корень
                         generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
                         
                         print("[БЭКЕНД] ⏱️ Ожидание фиксации видео на диске (15 секунд)...")
