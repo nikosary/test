@@ -11,144 +11,164 @@ import time
 from datetime import datetime
 
 print("[СЕРВЕР] 🚀 Старт пуленепробиваемой системы Чистый Код 2026...")
+print(f"[DEBUG] Python version: {sys.version}")
+print(f"[DEBUG] Working directory: {os.getcwd()}")
+print(f"[DEBUG] PLATFORM: {sys.platform}")
 
+# Проверка модулей
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
-except ImportError:
-    print("[СЕРВЕР] ❌ Критическая ошибка: Не найден файл summarizer.py!")
+except ImportError as e:
+    print(f"[СЕРВЕР] ❌ Критическая ошибка: Не найден файл summarizer.py! {e}")
     sys.exit(1)
 
 try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
-except ImportError:
+except ImportError as e:
+    print(f"[СЕРВЕР] ⚠️ Модуль video_generator не найден: {e}")
     generate_video = None
 
 try:
     from voice_engine import generate_voice
     print("[СЕРВЕР] ✅ Модуль voice_engine успешно подключен")
-except ImportError:
+except ImportError as e:
+    print(f"[СЕРВЕР] ⚠️ Модуль voice_engine не найден: {e}")
     generate_voice = None
 
-# Глобальная переменная для хранения последних тезисов ИИ
+# Глобальные переменные
 last_generated_theses = []
-
-# НАСТРОЙКА ДЛЯ RENDER: Переносим создание файлов в безопасную системную папку /tmp
 TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
 OUTPUT_VIDEO_PATH = os.path.join(TEMP_DIR, "output.mp4")
 AUDIO_FILE_PATH = os.path.join(TEMP_DIR, "audio.mp3")
 
+print(f"[DEBUG] TEMP_DIR: {TEMP_DIR}")
+print(f"[DEBUG] OUTPUT_VIDEO_PATH: {OUTPUT_VIDEO_PATH}")
+print(f"[DEBUG] AUDIO_FILE_PATH: {AUDIO_FILE_PATH}")
+
 def wrap_text_clean(text, max_chars=35):
-    """Аккуратно разбивает длинный текст на строки для экрана."""
-    if not text:
-        return ""
+    if not text: return ""
     clean_text = str(text).replace("[", "").replace("]", "").replace("'", "").replace('"', '')
     words = clean_text.split()
-    lines = []
-    current_line = []
-    current_length = 0
+    lines, current_line, current_length = [], [], 0
     for word in words:
         if current_length + len(word) + 1 <= max_chars:
             current_line.append(word)
             current_length += len(word) + 1
         else:
             lines.append(" ".join(current_line))
-            current_line = [word]
-            current_length = len(word)
-    if current_line:
-        lines.append(" ".join(current_line))
+            current_line, current_length = [word], len(word)
+    if current_line: lines.append(" ".join(current_line))
     return "\\\n".join(lines)
 
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
+        
+        print(f"[DEBUG] Received request: {parsed_url.path}")
 
-        # 1. ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ПУТИ ГЕНЕРАЦИИ ВИДЕО (Защита от 404 ошибки)
+        # 1. ГЕНЕРАЦИЯ ВИДЕО ЧЕРЕЗ ИИ И FFMPEG
         if parsed_url.path == "/api/generate":
+            print("[DEBUG] =========== /api/generate START ===========")
+            
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            raw_query = query_params.get('query', [''])
-            if not raw_query or not raw_query[0].strip():
+            raw_query_list = query_params.get('query', [])
+            
+            print(f"[DEBUG] raw_query_list: {raw_query_list}")
+            
+            # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ: Извлекаем чистую строку из нулевого индекса списка
+            user_query = ""
+            if raw_query_list and len(raw_query_list) > 0:
+                user_query = str(raw_query_list[0]).strip()
+            
+            print(f"[DEBUG] Очищенный user_query: '{user_query}'")
+            
+            if not user_query:
+                print("[DEBUG] Пустой запрос, возвращаю 400")
                 self.send_response(400)
-                self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "error", "message": "Empty query"}).encode())
                 return
 
-            user_query = raw_query[0].strip()
             now = datetime.now()
             current_date = now.strftime("%d.%m.%Y")
             display_time = now.strftime("%H:%M:%S")
 
-            print(f"\n{'='*60}")
-            print(f"[БЭКЕНД RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
-            print(f"{'='*60}")
+            print(f"[ОБЛАКО RENDER] 📨 ЗАПУСК МОНТАЖА ДЛЯ: '{user_query}' в {display_time}")
 
+            # Шаг A: Генерация тезисов
+            print("[DEBUG] Вызываю generate_summary...")
             try:
                 live_theses = generate_summary(user_query)
-                if isinstance(live_theses, str):
-                    theses = [t.strip() for t in live_theses.split(".") if t.strip()]
-                else:
-                    theses = list(live_theses)
+                print(f"[DEBUG] generate_summary вернул: {live_theses}")
+                theses = [t.strip() for t in live_theses.split(".") if t.strip()] if isinstance(live_theses, str) else list(live_theses)
             except Exception as e:
-                print(f"[БЭКЕНД] ⚠️ Сбой ИИ, создаю заглушки: {e}")
-                theses = [
-                    f"Ответ на запрос: {user_query}",
-                    "ИИ-алгоритмы проекта Чистый код 2026 успешно обработали тему.",
-                    "Контент автономно сформирован и упакован в облаке."
-                ]
+                print(f"[DEBUG] Ошибка generate_summary: {e}")
+                theses = [f"Ответ на запрос: {user_query}", "ИИ успешно обработал тему.", "Контент сформирован в облаке."]
 
-            while len(theses) < 3:
+            print(f"[DEBUG] Итоговые тезисы: {theses}")
+            
+            while len(theses) < 3: 
                 theses.append("Чистый контент 2026")
-
+            
             last_generated_theses = theses
 
+            # Шаг B: Генерация аудио-озвучки
+            print("[DEBUG] Проверяю generate_voice...")
             if generate_voice:
                 try:
+                    print(f"[DEBUG] Вызываю generate_voice с {AUDIO_FILE_PATH}")
                     generate_voice(theses, output_audio=AUDIO_FILE_PATH)
-                except Exception as voice_err:
-                    print(f"[БЭКЕНД] ⚠️ Ошибка голосового движка: {voice_err}")
+                    print(f"[DEBUG] Аудио создано: {os.path.exists(AUDIO_FILE_PATH)}")
+                except Exception as e:
+                    print(f"[DEBUG] Ошибка generate_voice: {e}")
 
-            if os.path.exists(OUTPUT_VIDEO_PATH):
-                try: os.remove(OUTPUT_VIDEO_PATH)
-                except Exception: pass
+            # Шаг C: Удаление старого видео
+            if os.path.exists(OUTPUT_VIDEO_PATH): 
+                try: 
+                    os.remove(OUTPUT_VIDEO_PATH)
+                    print(f"[DEBUG] Удален старый файл: {OUTPUT_VIDEO_PATH}")
+                except Exception as e:
+                    print(f"[DEBUG] Ошибка удаления старого файла: {e}")
 
-            ffmpeg_path = "ffmpeg"
-            try:
-                import static_ffmpeg
-                if hasattr(static_ffmpeg, 'run'):
-                    ffmpeg_path = "static_ffmpeg"
-            except ImportError:
-                pass
-
-            if sys.platform.startswith("win") and os.path.exists("ffmpeg.exe"):
-                ffmpeg_path = os.path.abspath("ffmpeg.exe")
+            # Шаг D: Настройка утилиты FFmpeg
+            ffmpeg_path = "static_ffmpeg"
+            if sys.platform.startswith("win"):
+                ffmpeg_path = "ffmpeg"
+            print(f"[DEBUG] Установлен движок ffmpeg_path: {ffmpeg_path}")
 
             clean_q = user_query.replace("'", "").replace('"', "")
             if len(clean_q) > 40: clean_q = clean_q[:37] + "..."
             
             q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-            t1_wrapped = wrap_text_clean(theses[0], max_chars=35)
-            t2_wrapped = wrap_text_clean(theses[1], max_chars=35)
-            t3_wrapped = wrap_text_clean(theses[2], max_chars=35)
+            t1_wrapped = wrap_text_clean(theses[0] if len(theses) > 0 else "Тезис 1", max_chars=35)
+            t2_wrapped = wrap_text_clean(theses[1] if len(theses) > 1 else "Тезис 2", max_chars=35)
+            t3_wrapped = wrap_text_clean(theses[2] if len(theses) > 2 else "Тезис 3", max_chars=35)
 
-            slide_time = 4.0  
-            print("[БЭКЕНД] 🎬 FFmpeg начинает склейку экранов со звуком...")
-            video_ready = False
+            print(f"[DEBUG] q_wrapped: {q_wrapped}")
+            print(f"[DEBUG] t1_wrapped: {t1_wrapped}")
+            print(f"[DEBUG] t2_wrapped: {t2_wrapped}")
+            print(f"[DEBUG] t3_wrapped: {t3_wrapped}")
+
+            slide_time = 4.0
+            
+            # Шаг E: Сборка видеоролика через FFmpeg
+            print("[DEBUG] Начинаю генерацию видео...")
             try:
                 cmd = [
-                    "ffmpeg" if ffmpeg_path == "ffmpeg" else "static_ffmpeg", "-y",
+                    ffmpeg_path, "-y",
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1a2a3d:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d5a27:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#1e3d1a:s=854x480:r=10", 
                     "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
                 ]
-                if os.path.exists(AUDIO_FILE_PATH) and os.path.getsize(AUDIO_FILE_PATH) > 0:
+                
+                has_audio = os.path.exists(AUDIO_FILE_PATH) and os.path.getsize(AUDIO_FILE_PATH) > 0
+                print(f"[DEBUG] Наличие аудиофайла: {has_audio}")
+                
+                if has_audio: 
                     cmd += ["-i", AUDIO_FILE_PATH]
-                    has_audio = True
-                else:
-                    has_audio = False
 
                 filter_string = (
                     f"[0:v] drawtext=text='{q_wrapped}':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=100:borderw=2:bordercolor=black [v1_title];"
@@ -159,23 +179,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     "[v1][v2][v3][v4] concat=n=4:v=1:a=0 [v_final]"
                 )
                 cmd += ["-filter_complex", filter_string, "-map", "[v_final]"]
-                if has_audio:
+                if has_audio: 
                     cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
                 cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", OUTPUT_VIDEO_PATH]
+                
+                print(f"[DEBUG] Вызываю FFmpeg с командой: {' '.join(cmd)}")
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                print("[БЭКЕНД] 🎉 МОНТАЖ ФИЛЬМА ПОЛНОСТЬЮ ЗАВЕРШЕН!")
-                video_ready = True
+                print("[ОБЛАКО RENDER] 🎉 МОНТАЖ ПОЛНОСТЬЮ ЗАВЕРШЕН!")
             except Exception as ffmpeg_err:
-                print(f"[БЭКЕНД] ❌ Ошибка FFmpeg сборки: {ffmpeg_err}")
-                video_ready = False
+                print(f"[DEBUG] Критическая ошибка FFmpeg: {ffmpeg_err}")
 
-            if not video_ready:
-                try:
-                    cmd_alt = ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=#2d5a27:s=854x480:d=8", "-c:v", "libx264", OUTPUT_VIDEO_PATH]
-                    subprocess.run(cmd_alt, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                except Exception: pass
-
-            time.sleep(2.5)
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
@@ -183,33 +196,16 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode())
             return
 
-        # 2. ОТДАЧА ВИДЕОПОТОКА ИЗ ПАПКИ /tmp
+        # 2. ОТДАЧА ВИДЕОПОТОКА В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
+            print(f"[DEBUG] Запрос потока /output.mp4. Проверяю путь: {OUTPUT_VIDEO_PATH}")
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
+                print(f"[DEBUG] Видео найдено! Размер: {file_size} байт. Отдаю поток...")
                 self.send_response(200)
                 self.send_header("Content-type", "video/mp4")
                 self.send_header("Content-Length", str(file_size))
-                self.send_header("Accept-Ranges", "bytes") 
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Connection", "close")
                 self.end_headers()
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
-                    while True:
-                        chunk = video_file.read(65536)
-                        if not chunk: break
-                        self.wfile.write(chunk)
-                return
-            self.send_error(404, "File Not Found")
-            return
-
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА (ПЛОСКАЯ СТРУКТУРА БЕЗ ВЛОЖЕННОСТЕЙ)
-        if parsed_url.path == "/answer.html":
-            theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано", "Чистый код 2026"]
-            thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
-            html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
-            if os.path.exists("answer.html"):
-                with open("answer.html", "r", encoding="utf-8") as f:
-                    html_content = f.read()
-            target_marker = '<ul class="thesis-list">'
-            replacement = f'<ul class="thesis-list">{thesis_blocks}'
-            updated_html = html_content.replace(target_marker, replacement)
-            self.send_response(200)
