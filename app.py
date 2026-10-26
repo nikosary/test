@@ -10,6 +10,7 @@ import os
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
 
+# Проверка модулей
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -34,11 +35,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         # 1. ТОЧКА СБОРКИ КОНТЕНТА
         if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            raw_query = query_params.get('query', [])
+            raw_query_list = query_params.get('query', [])
             
+            # ИСПРАВЛЕНИЕ: Извлекаем чистую строку из первой ячейки списка по индексу 0
             user_query = ""
-            if raw_query and len(raw_query) > 0:
-                user_query = str(raw_query[0]).strip()
+            if raw_query_list and len(raw_query_list) > 0:
+                user_query = str(raw_query_list[0]).strip()
 
             if not user_query:
                 self.send_response(400)
