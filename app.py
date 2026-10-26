@@ -1,17 +1,15 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ЗАЩИТА ОТ РЕЛОАДА)
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (УМНЫЙ АВТОМАТ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import json
 import sys
 import os
-import time
 
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
 
-# Подключаем модули Максима
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -33,7 +31,8 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        if parsed_url.path in ["/api/generate", "/output.mp4", "/answer.html"]:
+        # 1. ТОЧКА СБОРКИ КОНТЕНТА
+        if parsed_url.path == "/api/generate":
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [])
             
@@ -41,44 +40,48 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             if raw_query and len(raw_query) > 0:
                 user_query = str(raw_query[0]).strip()
 
-            # ЖЕЛЕЗНАЯ ЗАЩИТА ОТ ПЕРЕЗАГРУЗКИ: Если файл уже есть на диске, мы НЕ запускаем монтаж заново!
-            if user_query and parsed_url.path == "/api/generate":
-                if os.path.exists(OUTPUT_VIDEO_PATH) and os.path.getsize(OUTPUT_VIDEO_PATH) > 0:
-                    print(f"[БЭКЕНД] ⚡ Видео уже готово в системе, отдаю мгновенно без повторного монтажа.")
-                else:
-                    print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
-                    
-                    try:
-                        live_theses = generate_summary(user_query)
-                        if isinstance(live_theses, str):
-                            theses_list = [t.strip() for t in live_theses.split(".") if t.strip()]
-                        else:
-                            theses_list = list(live_theses)
-                    except Exception as e:
-                        print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
-                        theses_list = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
+            if not user_query:
+                self.send_response(400)
+                self.end_headers()
+                return
 
-                    while len(theses_list) < 3:
-                        theses_list.append("Чистый код 2026")
-                    last_generated_theses = theses_list
-
-                    if generate_video:
-                        try:
-                            print("[БЭКЕНД] 🎬 Передаю задачу в оригинальный video_generator...")
-                            generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
-                            
-                            print("[БЭКЕНД] ⏱️ Ожидание фиксации видео на диске (15 секунд)...")
-                            time.sleep(15.0)
-                            print("[БЭКЕНД] ✅ Фиксация завершена.")
-                        except Exception as e:
-                            print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
-
-            if parsed_url.path == "/api/generate":
+            # Если видео уже скомпилировано на диске — сразу отдаём статус ready
+            if os.path.exists(OUTPUT_VIDEO_PATH) and os.path.getsize(OUTPUT_VIDEO_PATH) > 0:
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "ready", "video_url": "/output.mp4"}).encode())
                 return
+
+            print(f"\n[БЭКЕНД] 📨 ЗАПУСК ГЕНЕРАЦИИ ДЛЯ: '{user_query}'")
+            
+            try:
+                live_theses = generate_summary(user_query)
+                if isinstance(live_theses, str):
+                    theses_list = [t.strip() for t in live_theses.split(".") if t.strip()]
+                else:
+                    theses_list = list(live_theses)
+            except Exception as e:
+                print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
+                theses_list = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
+
+            while len(theses_list) < 3:
+                theses_list.append("Чистый код 2026")
+            last_generated_theses = theses_list
+
+            if generate_video:
+                try:
+                    print("[БЭКЕНД] 🎬 Передаю задачу в оригинальный video_generator...")
+                    generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
+                except Exception as e:
+                    print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
+
+            # Отправляем фронтенду сигнал, что первая сборка запущена
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "processing"}).encode())
+            return
 
         # 2. ОТДАЧА ВИДЕОПОТОКА В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
@@ -93,10 +96,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                     self.wfile.write(video_file.read())
                 return
-            self.send_error(404, "File Generating, Please Refresh")
+            self.send_error(404, "File Not Found")
             return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА
+        # 3. СТРАНИЦА ОТВЕТА С ТЕЗИСАМИ
         if parsed_url.path == "/answer.html":
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
