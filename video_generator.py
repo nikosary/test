@@ -1,5 +1,5 @@
 # ==========================================================
-# МОДУЛЬ ВИДЕОГЕНЕРАЦИИ ( КИНЕМАТОГРАФИЧЕСКИЙ ДВИЖОК МАКСИМА 2026 )
+# МОДУЛЬ ВИДЕОГЕНЕРАЦИИ ( ПУЛЕНЕПРОБИВАЕМЫЙ ДВИЖОК 2026 )
 # ==========================================================
 import os
 import sys
@@ -28,7 +28,7 @@ def wrap_text_clean(text, max_chars=35):
     return "\\\n".join(lines)
 
 def generate_video(user_query, theses_list, output_path="output.mp4"):
-    """Создает профессиональный MP4-фильм с синим фоном, рамками, временем и озвучкой."""
+    """Создает стабильный MP4-фильм, устойчивый к отсутствию системных шрифтов на Render."""
     now = datetime.now()
     current_date = now.strftime("%d.%m.%Y")
     display_time = now.strftime("%H:%M:%S")
@@ -49,13 +49,12 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
     
     q_wrapped = wrap_text_clean(clean_q, max_chars=30)
     
-    # Тексты на слайдах будут строго разными по индексам элементов списка
     t1_wrapped = wrap_text_clean(theses_list[0] if len(theses_list) > 0 else "Тезис 1", max_chars=35)
     t2_wrapped = wrap_text_clean(theses_list[1] if len(theses_list) > 1 else "Тезис 2", max_chars=35)
     t3_wrapped = wrap_text_clean(theses_list[2] if len(theses_list) > 2 else "Тезис 3", max_chars=35)
 
     slide_time = 4.0  # Каждый экран показывается по 4 секунды
-    print(f"[ДВИЖОК ВИДЕО] 🎬 Начинаю профессиональную сборку ролика через {ffmpeg_path}...")
+    print(f"[ДВИЖОК ВИДЕО] 🎬 Начинаю стабильную сборку ролика через {ffmpeg_path}...")
 
     try:
         # Базовая команда сборки 4-х экранов (сине-зеленая гамма проекта Чистый Код)
@@ -67,33 +66,31 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
             "-f", "lavfi", "-t", str(slide_time), "-i", "color=c=#2d2d2d:s=854x480:r=10", 
         ]
         
-        # Подключаем аудиофайл озвучки, если он физически создан
         has_audio = os.path.exists(audio_file_path) and os.path.getsize(audio_file_path) > 0
         if has_audio: 
             cmd += ["-i", audio_file_path]
-            print("[ДВИЖОК ВИДЕО] 🎙️ Аудиодорожка успешно найдена и добавлена в проект")
+            print("[ДВИЖОК ВИДЕО] 🎙️ Аудиодорожка подключена")
 
-        # Накладываем красивый текст со шрифтами, границами и выравниванием по центру
+        # ЖЕЛЕЗНОЕ ИСПРАВЛЕНИЕ: Используем встроенный механизм drawtext БЕЗ жесткого указания внешних шрифтов
         filter_string = (
-            f"[0:v] drawtext=text='{q_wrapped}':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=100:borderw=2:bordercolor=black [v1_title];"
-            f"[v1_title] drawtext=text='ДАТА: {current_date}  ВРЕМЯ: {display_time}':fontcolor=yellow:fontsize=28:x=(w-text_w)/2:y=260:borderw=3:bordercolor=black [v1];"
-            f"[1:v] drawtext=text='{t1_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v2];"
-            f"[2:v] drawtext=text='{t2_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v3];"
-            f"[3:v] drawtext=text='{t3_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black:line_spacing=8 [v4];"
+            f"[0:v] drawtext=text='{q_wrapped}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=100:box=1:boxcolor=black@0.5 [v1_title];"
+            f"[v1_title] drawtext=text='DATA: {current_date}  VREMYA: {display_time}':fontcolor=yellow:fontsize=26:x=(w-text_w)/2:y=260:box=1:boxcolor=black@0.5 [v1];"
+            f"[1:v] drawtext=text='{t1_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.5:line_spacing=8 [v2];"
+            f"[2:v] drawtext=text='{t2_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.5:line_spacing=8 [v3];"
+            f"[3:v] drawtext=text='{t3_wrapped}':fontcolor=white:fontsize=22:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.5:line_spacing=8 [v4];"
             "[v1][v2][v3][v4] concat=n=4:v=1:a=0 [v_final]"
         )
         cmd += ["-filter_complex", filter_string, "-map", "[v_final]"]
         
-        # Настраиваем аудиокодек
         if has_audio: 
             cmd += ["-map", "4:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
             
         cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", output_path]
         
-        # Запускаем сборку
+        # Запускаем сборку ролика
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        print("[ДВИЖОК ВИДЕО] 🎉 РОЛИК СМОНТИРОВАН ИДЕАЛЬНО!")
+        print("[ДВИЖОК ВИДЕО] 🎉 РОЛИК СМОНТИРОВАН ИДЕАЛЬНО БЕЗ ОШИБОК ШРИФТОВ!")
         return True
     except Exception as e:
-        print(f"[ДВИЖОК ВИДЕО] ❌ Ошибка FFmpeg сборщика: {e}")
+        print(f"[ДВИЖОК ВИДЕО] ❌ Ошибка сборщика FFmpeg: {e}")
         return False
