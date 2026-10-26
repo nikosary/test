@@ -79,8 +79,8 @@
         }
 
         updateStatus();
-        // УВЕЛИЧИЛИ ДО 4 СЕКУНД (4000 мс) НА КАЖДЫЙ ЭКРАН, ЧТОБЫ УСПЕВАЛ ДЕЛАЙТЬСЯ РОЛИК
-        const statusInterval = setInterval(updateStatus, 4000);
+        // ШАГ КАРТОЧЕК — 5 СЕКУНД (5000 мс)
+        const statusInterval = setInterval(updateStatus, 5000);
 
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
@@ -98,8 +98,8 @@
                     
                     if (data.status === 'ready') {
                         const elapsedTime = Date.now() - startTime;
-                        // Ждем минимум 20 секунд (время полного круга всех карточек по 4 секунды)
-                        const minimumShowTime = 20000; 
+                        // ЖДЕМ МИНИМУМ 25 СЕКУНД (25000 мс) ДЛЯ ПОЛНОГО МОНТАЖА
+                        const minimumShowTime = 25000; 
 
                         if (elapsedTime >= minimumShowTime) {
                             clearInterval(statusInterval);
