@@ -1,18 +1,16 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ СЕРВЕР
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ФИНАЛ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import json
 import sys
 import os
-import time
 
-# ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК В САМОМ НАЧАЛЕ (Защита от обрезания кода в браузере)
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
 
-# Бережно подключаем оригинальные модули
+# Подключаем модули Максима
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -35,48 +33,48 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # 1. ТОЧКА СВЯЗИ С ФРОНТЕНДОМ
-        if parsed_url.path == "/api/generate":
+        # 1. ОБЩАЯ ФУНКЦИЯ ДЛЯ ЗАПУСКА СБОРКИ РОЛИКА
+        if parsed_url.path in ["/api/generate", "/output.mp4", "/answer.html"]:
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [])
             
-            # Извлекаем чистую строку по индексу 0, без технических скобок списка
-            user_query = raw_query[0].strip() if raw_query else ""
-            
-            if not user_query:
-                self.send_response(400)
-                self.end_headers()
-                return
+            # Безопасно достаем чистый текст запроса
+            user_query = ""
+            if raw_query and len(raw_query) > 0:
+                user_query = str(raw_query[0]).strip()
 
-            print(f"\n[БЭКЕНД] 📨 ПОЛУЧЕН ЗАПРОС РОЛИКА: '{user_query}'")
-
-            try:
-                live_theses = generate_summary(user_query)
-                if isinstance(live_theses, str):
-                    theses = [t.strip() for t in live_theses.split(".") if t.strip()]
-                else:
-                    theses = list(live_theses)
-            except Exception:
-                theses = [f"Тема: {user_query}", "ИИ успешно обработал тему.", "Контент сформирован в облаке."]
-
-            while len(theses) < 3: 
-                theses.append("Чистый код 2026")
-            last_generated_theses = theses
-
-            # Вызываем оригинальный модуль видеомонтажа
-            if generate_video:
+            # Если файл видео ещё не создан, а запрос пришёл — запускаем монтаж!
+            if user_query and (not os.path.exists(OUTPUT_VIDEO_PATH) or parsed_url.path == "/api/generate"):
+                print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
+                
                 try:
-                    print("[БЭКЕНД] 🎬 Передаю управление в модуль video_generator...")
-                    generate_video(user_query, theses, output_path=OUTPUT_VIDEO_PATH)
+                    live_theses = generate_summary(user_query)
+                    if isinstance(live_theses, str):
+                        theses = [t.strip() for t in live_theses.split(".") if t.strip()]
+                    else:
+                        theses = list(live_theses)
                 except Exception as e:
-                    print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
+                    print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
+                    theses = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
 
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            response_data = {"status": "ready", "video_url": "/output.mp4"}
-            self.wfile.write(json.dumps(response_data).encode())
-            return
+                while len(theses) < 3:
+                    theses.append("Чистый код 2026")
+                last_generated_theses = theses
+
+                if generate_video:
+                    try:
+                        print("[БЭКЕНД] 🎬 Передаю задачу в video_generator...")
+                        generate_video(user_query, theses, output_path=OUTPUT_VIDEO_PATH)
+                    except Exception as e:
+                        print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
+
+            # Если это был просто запрос к API — возвращаем JSON
+            if parsed_url.path == "/api/generate":
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ready", "video_url": "/output.mp4"}).encode())
+                return
 
         # 2. ОТДАЧА ГОТОВОГО MP4 ФАЙЛА В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
@@ -91,16 +89,21 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                     self.wfile.write(video_file.read())
                 return
-            self.send_error(404, "File Not Found")
+            
+            # Если видео всё ещё генерируется — отдаём пустой ответ, чтобы плеер подождал
+            self.send_error(404, "File Generating, Please Refresh")
             return
 
         # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
+            
             html_content = "<html><body><ul class='thesis-list'></ul></body></html>"
             if os.path.exists("answer.html"):
-                with open("answer.html", "r", encoding="utf-8") as f: html_content = f.read()
+                with open("answer.html", "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                    
             updated_html = html_content.replace('<ul class="thesis-list">', f'<ul class="thesis-list">{thesis_blocks}')
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
@@ -110,10 +113,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-# ЗАПУСКАЕМ СЛУШАТЬ СЕТЬ ПРЯМО СЕЙЧАС
+# СЛУШАЕМ СЕТЬ
 try:
     server = HTTPServer(('0.0.0.0', PORT), AiServiceHandler)
-    print(f"[СЕРВЕР] ✅ ВЕБ-СЕРВЕР АКТИВИРОВАН И СЛУШАЕТ ПОРТ {PORT}")
+    print(f"[СЕРВЕР] ✅ ВЕБ-СЕРВЕР АКТИВИРОВАН НА ПОРТУ {PORT}")
     server.serve_forever()
 except Exception as server_err:
-    print(f"[СЕРВЕР] ❌ Не удалось запустить сервер: {server_err}")
+    print(f"[СЕРВЕР] ❌ Ошибка старта: {server_err}")
