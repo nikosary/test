@@ -1,16 +1,16 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ФИНАЛ)
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (ФИНАЛ С ЗАДЕРЖКОЙ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
 import json
 import sys
 import os
+import time
 
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
 
-# Подключаем модули Максима
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -22,7 +22,7 @@ try:
     from video_generator import generate_video
     print("[СЕРВЕР] ✅ Модуль video_generator успешно подключен")
 except ImportError:
-    generate_video = None
+    video_generator = None
 
 last_generated_theses = []
 TEMP_DIR = "/tmp" if not sys.platform.startswith("win") else "."
@@ -33,17 +33,14 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
         global last_generated_theses
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # 1. ОБЩАЯ ФУНКЦИЯ ДЛЯ ЗАПУСКА СБОРКИ РОЛИКА
         if parsed_url.path in ["/api/generate", "/output.mp4", "/answer.html"]:
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [])
             
-            # Безопасно достаем чистый текст запроса
             user_query = ""
             if raw_query and len(raw_query) > 0:
                 user_query = str(raw_query[0]).strip()
 
-            # Если файл видео ещё не создан, а запрос пришёл — запускаем монтаж!
             if user_query and (not os.path.exists(OUTPUT_VIDEO_PATH) or parsed_url.path == "/api/generate"):
                 print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
                 
@@ -65,10 +62,12 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                     try:
                         print("[БЭКЕНД] 🎬 Передаю задачу в video_generator...")
                         generate_video(user_query, theses, output_path=OUTPUT_VIDEO_PATH)
+                        # ТА САМАЯ ЗАДЕРЖКА: даем файлу 3 секунды спокойно записаться на диск облака
+                        print("[БЭКЕНД] ⏱️ Фиксация видеофайла в системе...")
+                        time.sleep(3.0)
                     except Exception as e:
                         print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
 
-            # Если это был просто запрос к API — возвращаем JSON
             if parsed_url.path == "/api/generate":
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
@@ -76,7 +75,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"status": "ready", "video_url": "/output.mp4"}).encode())
                 return
 
-        # 2. ОТДАЧА ГОТОВОГО MP4 ФАЙЛА В ПЛЕЕР
         if parsed_url.path == "/output.mp4":
             if os.path.exists(OUTPUT_VIDEO_PATH):
                 file_size = os.path.getsize(OUTPUT_VIDEO_PATH)
@@ -89,12 +87,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 with open(OUTPUT_VIDEO_PATH, "rb") as video_file:
                     self.wfile.write(video_file.read())
                 return
-            
-            # Если видео всё ещё генерируется — отдаём пустой ответ, чтобы плеер подождал
             self.send_error(404, "File Generating, Please Refresh")
             return
 
-        # 3. ПОДСТАНОВКА ТЕЗИСОВ В СТРАНИЦУ ОТВЕТА
         if parsed_url.path == "/answer.html":
             theses_to_show = last_generated_theses if last_generated_theses else ["Данные обработаны", "Видео создано"]
             thesis_blocks = "".join([f'<li class="thesis-item">{t}</li>' for t in theses_to_show])
@@ -113,7 +108,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-# СЛУШАЕМ СЕТЬ
 try:
     server = HTTPServer(('0.0.0.0', PORT), AiServiceHandler)
     print(f"[СЕРВЕР] ✅ ВЕБ-СЕРВЕР АКТИВИРОВАН НА ПОРТУ {PORT}")
