@@ -1,5 +1,5 @@
 # ==========================================================
-# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (МЕГА-СПЛИТ)
+# ПРОЕКТ: ХОЧУ ЗНАТЬ 2026 — АВТОНОМНЫЙ ИИ-ДИСПЕТЧЕР (СИНХРОННЫЙ)
 # ==========================================================
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -11,6 +11,7 @@ import time
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
 
+# Подключаем модули Максима
 try:
     from summarizer import generate_summary
     print("[СЕРВЕР] ✅ Модуль summarizer успешно подключен")
@@ -37,36 +38,38 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query = query_params.get('query', [])
             
+            # Чистый текст запроса
             user_query = ""
             if raw_query and len(raw_query) > 0:
-                user_query = str(raw_query).strip()
+                user_query = str(raw_query[0]).strip()
 
+            # Если файла нет или пришел прямой запрос — запускаем сборку
             if user_query and (not os.path.exists(OUTPUT_VIDEO_PATH) or parsed_url.path == "/api/generate"):
                 print(f"\n[БЭКЕНД] 📨 НАЧИНАЮ АВТОНОМНУЮ СБОРКУ ДЛЯ: '{user_query}'")
                 
                 try:
                     live_theses = generate_summary(user_query)
                     if isinstance(live_theses, str):
-                        theses = [t.strip() for t in live_theses.split(".") if t.strip()]
+                        theses_list = [t.strip() for t in live_theses.split(".") if t.strip()]
                     else:
-                        theses = list(live_theses)
+                        theses_list = list(live_theses)
                 except Exception as e:
-                    print(f"[БЭК鍵] ⚠️ Сбой ИИ: {e}")
-                    theses = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
+                    print(f"[БЭКЕНД] ⚠️ Сбой ИИ: {e}")
+                    theses_list = [f"Тема: {user_query}", "ИИ успешно обработал данные.", "Контент создан автономно."]
 
-                while len(theses) < 3:
-                    theses.append("Чистый код 2026")
-                last_generated_theses = theses
+                while len(theses_list) < 3:
+                    theses_list.append("Чистый код 2026")
+                last_generated_theses = theses_list
 
+                # СИНХРОНИЗАЦИЯ: Передаем theses_list строго по имени аргумента Максима
                 if generate_video:
                     try:
-                        print("[БЭКЕНД] 🎬 Передаю задачу в video_generator...")
-                        generate_video(user_query, theses, output_path=OUTPUT_VIDEO_PATH)
+                        print("[БЭКЕНД] 🎬 Передаю задачу в оригинальный video_generator...")
+                        generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
                         
-                        # ТВОЯ ЖЕЛЕЗНАЯ ЗАДЕРЖКА: даем целых 15 секунд на утряску FFmpeg!
-                        print("[БЭКЕНД] ⏱️ Запуск мега-задержки (15 секунд) для полной сборки фильма...")
+                        print("[БЭКЕНД] ⏱️ Ожидание фиксации видео на диске (15 секунд)...")
                         time.sleep(15.0)
-                        print("[БЭКЕНД] ✅ Задержка завершена, файл гарантированно на диске.")
+                        print("[БЭКЕНД] ✅ Фиксация завершена.")
                     except Exception as e:
                         print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
 
