@@ -221,12 +221,12 @@
         <div class="card">
             <h2 style="margin-bottom: 15px; font-size: 20px; color: var(--primary-green);">Сгенерированный ролик</h2>
             <div class="video-container">
-                <video id="main-player" controls poster="https://unsplash.com">
+                <video id="main-player" controls>
                     Ваш браузер не поддерживает встроенные видео.
                 </video>
             </div>
             <div class="action-buttons">
-                <a href="#" download class="btn btn-primary" id="download-link">Скачать MP4</a>
+                <a href="#" download="video.mp4" class="btn btn-primary" id="download-link">Скачать MP4</a>
                 <a href="index.html" class="btn btn-secondary">Новый запрос</a>
             </div>
         </div>
@@ -235,6 +235,7 @@
             <div class="card">
                 <h2 style="margin-bottom: 15px; font-size: 20px; color: var(--primary-green);">Ключевые тезисы</h2>
                 <ul class="thesis-list">
+                    <!-- Сюда бэкенд app.py автоматически подставит три реальных тезиса от Gemini -->
                     <li class="thesis-item">Глубокий анализ данных выявил ключевые закономерности по теме.</li>
                     <li class="thesis-item">Технология сборки контента работает полностью автономно без WordPress плагинов.</li>
                     <li class="thesis-item">Эко-стиль и лаконичная подача информации увеличивают удержание внимания.</li>
@@ -257,30 +258,28 @@
     </footer>
 
     <script>
+        // Читаем параметры из адреса строки браузера
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('query');
-        const videoUrl = urlParams.get('video');
+        const videoUrl = urlParams.get('video') || '/output.mp4'; // Если бэкенд не прислал путь, берем корень
 
+        // Оживляем заголовок запроса
         const queryTitleElement = document.getElementById('query-title');
         if (query) {
             queryTitleElement.innerText = `Результат: ${query}`;
         }
 
+        // Подключаем видеопоток к плееру
         const mainPlayer = document.getElementById('main-player');
-        const downloadLink = document.getElementById('download-link');
-        const finalVideoPath = videoUrl ? videoUrl : '/video';
-
         if (mainPlayer) {
-            mainPlayer.innerHTML = ''; 
-            const sourceElement = document.createElement('source');
-            sourceElement.src = finalVideoPath;
-            sourceElement.type = 'video/mp4';
-            mainPlayer.appendChild(sourceElement);
-            mainPlayer.load(); 
+            mainPlayer.src = videoUrl;
+            mainPlayer.load();
         }
 
+        // Настраиваем кнопку скачивания файла
+        const downloadLink = document.getElementById('download-link');
         if (downloadLink) {
-            downloadLink.href = finalVideoPath;
+            downloadLink.href = videoUrl;
         }
     </script>
 </body>
