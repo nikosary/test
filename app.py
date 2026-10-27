@@ -6,7 +6,7 @@ import urllib.parse
 import json
 import sys
 import os
-import threading  # ИСПРАВЛЕНИЕ: Добавляем потоки для фоновой сборки видео
+import threading
 
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
@@ -28,7 +28,7 @@ except ImportError:
 last_generated_theses = []
 OUTPUT_VIDEO_PATH = "output.mp4"
 
-# ГЛОБАЛЬНЫЙ ФЛАГ БЛОКИРОВКИ ПОВТОРНЫХ СБОРОК
+# ГЛОБАЛЬНЫЙ ФЛАГ БЛОКИРОВКИ ППОВТОРНЫХ СБОРОК
 is_rendering = False
 
 def async_video_worker(user_query, theses_list):
@@ -42,7 +42,7 @@ def async_video_worker(user_query, theses_list):
     except Exception as e:
         print(f"[ФОНОВЫЙ ПОТОК] ⚠️ Критическая ошибка в потоке видеомодуля: {e}")
     finally:
-        is_rendering = False  # В любом случае снимаем блокировку по окончании
+        is_rendering = False
 
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -56,6 +56,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
+                # ИСПРАВЛЕНО: Берем чистую строку по индексу 0, без квадратных скобок массива
                 user_query = str(raw_query_list[0]).strip()
 
             if not user_query:
@@ -104,7 +105,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 theses_list.append("Чистый код 2026")
             last_generated_theses = theses_list
 
-            # ИСПРАВЛЕНИЕ: Запускаем генерацию в фоновом режиме (Thread), не блокируя HTTP-ответ!
+            # Запускаем генерацию в фоновом режиме (Thread), не блокируя HTTP-ответ
             threading.Thread(target=async_video_worker, args=(user_query, theses_list), daemon=True).start()
 
             # Мгновенно возвращаем фронтенду статус processing
