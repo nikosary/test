@@ -46,10 +46,8 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
 
     print(f"[ДВИЖОК ВИДЕО] 🎯 Найден локальный файл шрифта: {font_file}")
 
-    # Автоматически выбираем движок FFmpeg для Render
-    ffmpeg_path = "static_ffmpeg"
-    if sys.platform.startswith("win"):
-        ffmpeg_path = "ffmpeg"
+    # ИСПРАВЛЕНИЕ: На Render static-ffmpeg биндится в глобальную команду ffmpeg
+    ffmpeg_path = "ffmpeg"
 
     # Готовим тексты
     clean_q = user_query.replace("'", "").replace('"', "")
@@ -57,9 +55,11 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
         clean_q = clean_q[:37] + "..."
     
     q_wrapped = wrap_text_clean(clean_q, max_chars=30)
-    t1_wrapped = wrap_text_clean(theses_list if len(theses_list) > 0 else "Тезис 1", max_chars=35)
-    t2_wrapped = wrap_text_clean(theses_list if len(theses_list) > 1 else "Тезис 2", max_chars=35)
-    t3_wrapped = wrap_text_clean(theses_list if len(theses_list) > 2 else "Тезис 3", max_chars=35)
+    
+    # ИСПРАВЛЕНИЕ: Берем элементы списка по индексам, [1], [2], а не весь список целиком!
+    t1_wrapped = wrap_text_clean(theses_list[0] if len(theses_list) > 0 else "Тезис 1", max_chars=35)
+    t2_wrapped = wrap_text_clean(theses_list[1] if len(theses_list) > 1 else "Тезис 2", max_chars=35)
+    t3_wrapped = wrap_text_clean(theses_list[2] if len(theses_list) > 2 else "Тезис 3", max_chars=35)
 
     slide_time = 4.0
     print(f"[ДВИЖОК ВИДЕО] 🎬 Начинаю сборку через {ffmpeg_path} с применением шрифта {font_file}...")
@@ -77,7 +77,6 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
         if has_audio: 
             cmd += ["-i", audio_file_path]
 
-        # Добавляем параметр fontfile={font_file} строго в каждый блок drawtext
         filter_string = (
             f"[0:v] drawtext=fontfile='{font_file}':text='{q_wrapped}':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=100:borderw=2:bordercolor=black [v1_title];"
             f"[v1_title] drawtext=fontfile='{font_file}':text='ДАТА: {current_date}  ВРЕМЯ: {display_time}':fontcolor=yellow:fontsize=28:x=(w-text_w)/2:y=260:borderw=3:bordercolor=black [v1];"
@@ -93,9 +92,12 @@ def generate_video(user_query, theses_list, output_path="output.mp4"):
             
         cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", output_path]
         
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        # Выполняем сборку
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         print("[ДВИЖОК ВИДЕО] 🎉 РОЛИК УСПЕШНО СМОНТИРОВАН С ОРИГИНАЛЬНЫМ ШРИФТОМ!")
         return True
     except Exception as e:
         print(f"[ДВИЖОК ВИДЕО] ❌ Ошибка FFmpeg сборщика со шрифтом: {e}")
+        if 'result' in locals() and result.stderr:
+            print(f"[ДВИЖОК ВИДЕО] Подробности ошибки FFmpeg: {result.stderr.decode('utf-8', errors='ignore')}")
         return False
