@@ -6,6 +6,7 @@ import urllib.parse
 import json
 import sys
 import os
+import threading  # ИСПРАВЛЕНИЕ: Добавляем потоки для фоновой сборки видео
 
 PORT = int(os.environ.get("PORT", 10000))
 print(f"[СЕРВЕР] 🚀 Инициализация... Связываю порт {PORT}")
@@ -27,9 +28,25 @@ except ImportError:
 last_generated_theses = []
 OUTPUT_VIDEO_PATH = "output.mp4"
 
+# ГЛОБАЛЬНЫЙ ФЛАГ БЛОКИРОВКИ ПОВТОРНЫХ СБОРОК
+is_rendering = False
+
+def async_video_worker(user_query, theses_list):
+    """Фоновая функция, которая выполняет тяжелый монтаж, не вешая веб-сервер."""
+    global is_rendering
+    try:
+        if generate_video:
+            print("[ФОНОВЫЙ ПОТОК] 🎬 Передаю задачу в исправленный video_generator...")
+            generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
+            print("[ФОНОВЫЙ ПОТОК] 🏁 Видеогенератор успешно завершил сборку файла!")
+    except Exception as e:
+        print(f"[ФОНОВЫЙ ПОТОК] ⚠️ Критическая ошибка в потоке видеомодуля: {e}")
+    finally:
+        is_rendering = False  # В любом случае снимаем блокировку по окончании
+
 class AiServiceHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        global last_generated_theses
+        global last_generated_theses, is_rendering
         parsed_url = urllib.parse.urlparse(self.path)
 
         # 1. ТОЧКА СБОРКИ КОНТЕНТА
@@ -37,7 +54,6 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             raw_query_list = query_params.get('query', [])
             
-            # ИСПРАВЛЕНИЕ: Извлекаем чистую строку из первой ячейки списка по индексу 0
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
                 user_query = str(raw_query_list[0]).strip()
@@ -47,15 +63,32 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
 
-            # Если видео уже скомпилировано на диске — сразу отдаём статус ready
-            if os.path.exists(OUTPUT_VIDEO_PATH) and os.path.getsize(OUTPUT_VIDEO_PATH) > 0:
+            # ХОД А: Если видео уже полностью готово на диске и монтаж не идет
+            if os.path.exists(OUTPUT_VIDEO_PATH) and os.path.getsize(OUTPUT_VIDEO_PATH) > 0 and not is_rendering:
+                print(f"[БЭКЕНД] 🎉 Готовый ролик найден. Отдаю статус ready!")
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "ready", "video_url": "/output.mp4"}).encode())
                 return
 
-            print(f"\n[БЭКЕНД] 📨 ЗАПУСК ГЕНЕРАЦИИ ДЛЯ: '{user_query}'")
+            # ХОД Б: Если фронтенд опрашивает нас во время активного фонового рендера
+            if is_rendering:
+                print("[БЭКЕНД] ⏳ Фоновый рендер продолжается. Отдаю фронтенду processing...")
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "processing"}).encode())
+                return
+
+            # ХОД В: ПЕРВЫЙ ЗАПУСК ГЕНЕРАЦИИ (видео нет, поток не запущен)
+            print(f"\n[БЭКЕНД] 📨 ПЕРВИЧНЫЙ ЗАПУСК СИСТЕМЫ ДЛЯ: '{user_query}'")
+            is_rendering = True
+
+            # Стираем старый файл перед новой сборкой
+            if os.path.exists(OUTPUT_VIDEO_PATH):
+                try: os.remove(OUTPUT_VIDEO_PATH)
+                except Exception: pass
             
             try:
                 live_theses = generate_summary(user_query)
@@ -71,14 +104,10 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 theses_list.append("Чистый код 2026")
             last_generated_theses = theses_list
 
-            if generate_video:
-                try:
-                    print("[БЭКЕНД] 🎬 Передаю задачу в оригинальный video_generator...")
-                    generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
-                except Exception as e:
-                    print(f"[БЭКЕНД] ⚠️ Ошибка видеомодуля: {e}")
+            # ИСПРАВЛЕНИЕ: Запускаем генерацию в фоновом режиме (Thread), не блокируя HTTP-ответ!
+            threading.Thread(target=async_video_worker, args=(user_query, theses_list), daemon=True).start()
 
-            # Отправляем фронтенду сигнал, что первая сборка запущена
+            # Мгновенно возвращаем фронтенду статус processing
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
