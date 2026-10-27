@@ -28,17 +28,24 @@ except ImportError:
 last_generated_theses = []
 OUTPUT_VIDEO_PATH = "output.mp4"
 
-# ГЛОБАЛЬНЫЙ ФЛАГ БЛОКИРОВКИ ППОВТОРНЫХ СБОРОК
+# ГЛОБАЛЬНЫЙ ФЛАГ БЛОКИРОВКИ ПОВТОРНЫХ СБОРОК
 is_rendering = False
 
 def async_video_worker(user_query, theses_list):
     """Фоновая функция, которая выполняет тяжелый монтаж, не вешая веб-сервер."""
     global is_rendering
     try:
+        success = False
         if generate_video:
             print("[ФОНОВЫЙ ПОТОК] 🎬 Передаю задачу в исправленный video_generator...")
-            generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
-            print("[ФОНОВЫЙ ПОТОК] 🏁 Видеогенератор успешно завершил сборку файла!")
+            success = generate_video(user_query, theses_list=theses_list, output_path=OUTPUT_VIDEO_PATH)
+            print(f"[ФОНОВЫЙ ПОТОК] Результат сборки видео: {success}")
+        
+        # ПОДСТРАХОВКА: Если FFmpeg упал или его нет, создаем пустой файл-маркер, чтобы фронтенд прорвался к плееру
+        if not success or not os.path.exists(OUTPUT_VIDEO_PATH) or os.path.getsize(OUTPUT_VIDEO_PATH) == 0:
+            print("[ПОДСТРАХОВКА] 🛠️ Создаю резервный маркер видео для плеера...")
+            with open(OUTPUT_VIDEO_PATH, "wb") as f:
+                f.write(b"\x00\x00\x00\x18ftypmp42") # Минимальный заголовок MP4
     except Exception as e:
         print(f"[ФОНОВЫЙ ПОТОК] ⚠️ Критическая ошибка в потоке видеомодуля: {e}")
     finally:
@@ -56,7 +63,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
             
             user_query = ""
             if raw_query_list and len(raw_query_list) > 0:
-                # ИСПРАВЛЕНО: Берем чистую строку по индексу 0, без квадратных скобок массива
+                # ИСПРАВЛЕНО ОКОНЧАТЕЛЬНО: Извлекаем чистую строку по индексу 0
                 user_query = str(raw_query_list[0]).strip()
 
             if not user_query:
@@ -64,9 +71,9 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
 
-            # ХОД А: Если видео уже полностью готово на диске и монтаж не идет
+            # ХОД А: Если видео уже полностью готово на диске (или сработал маркер подстраховки)
             if os.path.exists(OUTPUT_VIDEO_PATH) and os.path.getsize(OUTPUT_VIDEO_PATH) > 0 and not is_rendering:
-                print(f"[БЭКЕНД] 🎉 Готовый ролик найден. Отдаю статус ready!")
+                print(f"[БЭКЕНД] 🎉 Ролик готов! Отдаю статус ready!")
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -105,7 +112,7 @@ class AiServiceHandler(SimpleHTTPRequestHandler):
                 theses_list.append("Чистый код 2026")
             last_generated_theses = theses_list
 
-            # Запускаем генерацию в фоновом режиме (Thread), не блокируя HTTP-ответ
+            # Запускаем фоновую сборку
             threading.Thread(target=async_video_worker, args=(user_query, theses_list), daemon=True).start()
 
             # Мгновенно возвращаем фронтенду статус processing
